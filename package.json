@@ -1,0 +1,22 @@
+{
+    "name": "adnext",
+    "private": true,
+    "scripts": {
+        "build": "turbo run build",
+        "dev": "turbo run dev",
+        "lint": "turbo run lint",
+        "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+        "db:push": "turbo run db:push",
+        "db:studio": "turbo run db:studio",
+        "postinstall": "echo \"postinstall skipped\""
+    },
+    "devDependencies": {
+        "turbo": "latest",
+        "prettier": "^3.0.0",
+        "typescript": "^5.0.0"
+    },
+    "packageManager": "pnpm@8.15.0",
+    "engines": {
+        "node": ">=18"
+    }
+}

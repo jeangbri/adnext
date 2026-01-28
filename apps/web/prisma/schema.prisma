@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String            @id @default(uuid())
+  email           String            @unique
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  ownedWorkspaces Workspace[]
+  workspaces      WorkspaceMember[]
+}
+
+model Workspace {
+  id                String             @id @default(uuid())
+  name              String
+  ownerId           String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  connectedAccounts ConnectedAccount[]
+  responseTemplates ResponseTemplate[]
+  workflows         Workflow[]
+  workflowFolders   WorkflowFolder[]
+  owner             User               @relation(fields: [ownerId], references: [id])
+  members           WorkspaceMember[]
+  contacts          Contact[]
+}
+
+model Contact {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  instagramId     String
+  username        String?
+  fullName        String?
+  profilePicUrl   String?
+  isVerified      Boolean  @default(false)
+  isFollowing     Boolean  @default(false)
+  followerCount   Int      @default(0)
+  lastInteraction DateTime @default(now())
+  tags            String[] @default([])
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([workspaceId, instagramId])
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        String
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, userId])
+}
+
+model ConnectedAccount {
+  id                   String    @id @default(uuid())
+  workspaceId          String
+  providerAccountId    String    // Facebook Page ID or IG User ID
+  name                 String    // Page Name or Username
+  profilePicUrl        String?
+  status               String
+  accessTokenEncrypted String
+  tokenExpiresAt       DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  workspace            Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, providerAccountId])
+}
+
+model WorkflowFolder {
+  id          String     @id @default(uuid())
+  workspaceId String
+  name        String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  workflows   Workflow[]
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id])
+}
+
+model Workflow {
+  id             String            @id @default(uuid())
+  workspaceId    String
+  folderId       String?
+  title          String
+  description    String?
+  channels       Json
+  isActive       Boolean           @default(false)
+  status         String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  publishedAt    DateTime?
+  runCount       Int               @default(0)
+  lastRunAt      DateTime?
+  flowDefinition Json?
+  automationRuns AutomationRun[]
+  folder         WorkflowFolder?   @relation(fields: [folderId], references: [id])
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id])
+  actions        WorkflowAction[]
+  triggers       WorkflowTrigger[]
+}
+
+model WorkflowTrigger {
+  id         String   @id @default(uuid())
+  workflowId String
+  type       String
+  configJson Json
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowAction {
+  id         String   @id @default(uuid())
+  workflowId String
+  type       String
+  configJson Json
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model ResponseTemplate {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  body        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model WebhookEvent {
+  id               String          @id @default(uuid())
+  workspaceId      String?
+  platform         String
+  eventType        String
+  platformEventId  String          @unique
+  payloadJson      Json
+  receivedAt       DateTime        @default(now())
+  signatureValid   Boolean
+  processedAt      DateTime?
+  processingStatus String
+  lastError        String?
+  automationRuns   AutomationRun[]
+}
+
+model AutomationRun {
+  id             String             @id @default(uuid())
+  workflowId     String
+  webhookEventId String
+  status         String
+  startedAt      DateTime           @default(now())
+  finishedAt     DateTime?
+  correlationId  String?
+  errorMessage   String?
+  webhookEvent   WebhookEvent       @relation(fields: [webhookEventId], references: [id])
+  workflow       Workflow           @relation(fields: [workflowId], references: [id])
+  logs           AutomationRunLog[]
+}
+
+model AutomationRunLog {
+  id       String        @id @default(uuid())
+  runId    String
+  ts       DateTime      @default(now())
+  level    String
+  message  String
+  metaJson Json?
+  run      AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}

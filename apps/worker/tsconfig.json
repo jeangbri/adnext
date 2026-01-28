@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "commonjs",
+        "lib": [
+            "esnext"
+        ],
+        "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@repo/db": [
+                "../../packages/db/src/index.ts"
+            ],
+            "@repo/shared": [
+                "../../packages/shared/src/index.ts"
+            ]
+        },
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true
+    }
+}
