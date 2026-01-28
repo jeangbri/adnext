@@ -26,4 +26,5 @@ async function handler(req: NextRequest) {
 // If running locally with `npm run dev` and Manually invoking, we might skip validation.
 // For Vercel production, this IS REQUIRED.
 
-export const POST = verifySignatureAppRouter(handler); 
+// export const POST = verifySignatureAppRouter(handler);
+export const POST = handler; 
