@@ -44,6 +44,23 @@ export default function IntegrationsPage() {
         window.location.href = '/api/messenger/connect?revalidate=true'
     }
 
+    const handleTestSend = async () => {
+        try {
+            setLoading(true)
+            const res = await fetch('/api/test/send', { method: 'POST' })
+            const data = await res.json()
+            if (res.ok) {
+                alert(`Mensagem enviada para ${data.recipient}!`)
+            } else {
+                alert('Erro: ' + data.error)
+            }
+        } catch (e) {
+            alert('Erro ao enviar teste')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div>
@@ -63,7 +80,7 @@ export default function IntegrationsPage() {
                                 <CardDescription className="text-zinc-400">Conecte sua Página para responder automaticamente.</CardDescription>
                             </div>
                         </div>
-                        {account?.status === 'CONNECTED' ? (
+                        {account?.isActive ? (
                             <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">
                                 <CheckCircle className="w-3 h-3 mr-1" /> Conectado
                             </Badge>
@@ -78,16 +95,12 @@ export default function IntegrationsPage() {
                     ) : account ? (
                         <div className="rounded-xl border border-zinc-800 p-4 bg-black/20">
                             <div className="flex items-center gap-4">
-                                {account.profilePicUrl ? (
-                                    <img src={account.profilePicUrl} alt={account.name} className="w-12 h-12 rounded-full ring-2 ring-primary/20" />
-                                ) : (
-                                    <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
-                                        <Smartphone className="w-6 h-6 text-zinc-500" />
-                                    </div>
-                                )}
+                                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
+                                    {account.pageName.charAt(0)}
+                                </div>
                                 <div>
-                                    <p className="font-semibold text-white text-lg">{account.name}</p>
-                                    <p className="text-xs text-zinc-500 font-mono">Page ID: {account.providerAccountId}</p>
+                                    <p className="font-semibold text-white text-lg">{account.pageName}</p>
+                                    <p className="text-xs text-zinc-500 font-mono">Page ID: {account.pageId}</p>
                                 </div>
                             </div>
                         </div>
@@ -98,15 +111,21 @@ export default function IntegrationsPage() {
                     )}
                 </CardContent>
                 <CardFooter className="flex gap-2">
-                    {!account || account.status !== 'CONNECTED' ? (
+                    {!account || !account.isActive ? (
                         <Button onClick={handleConnect} disabled={loading} className="bg-primary hover:bg-primary/90 text-white shadow-[0_0_20px_-5px_rgba(0,132,255,0.3)]">
                             Conectar Facebook Page
                         </Button>
                     ) : (
-                        <Button variant="outline" onClick={handleRevalidate} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Revalidar Conexão
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={handleRevalidate} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Revalidar
+                            </Button>
+                            <Button variant="secondary" onClick={handleTestSend} disabled={loading}>
+                                <Smartphone className="w-4 h-4 mr-2" />
+                                Testar Envio
+                            </Button>
+                        </div>
                     )}
                 </CardFooter>
             </Card>

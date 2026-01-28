@@ -42,6 +42,11 @@ export async function POST(req: NextRequest) {
         isValid = false;
     }
 
+    if (!isValid) {
+        console.warn("Invalid Signature on Webhook");
+        return new NextResponse("Invalid Signature", { status: 401 });
+    }
+
     let payload: any = {};
     try {
         payload = JSON.parse(bodyText);
@@ -49,40 +54,14 @@ export async function POST(req: NextRequest) {
         return new NextResponse("Invalid JSON", { status: 400 });
     }
 
-    // Idempotency: Hash of body.
-    const platformEventId = crypto.createHash('sha256').update(bodyText).digest('hex');
-
-    const existing = await prisma.webhookEvent.findUnique({
-        where: { platformEventId }
-    });
-
-    if (existing) {
-        return NextResponse.json({ ok: true });
-    }
-
-    // Create event
-    const event = await prisma.webhookEvent.create({
-        data: {
-            platform: 'MESSENGER', // Explicitly Messenger
-            eventType: payload.object || 'unknown', // 'page' usually
-            platformEventId,
-            payloadJson: payload,
-            signatureValid: isValid,
-            processingStatus: isValid ? 'PENDING' : 'ERROR',
-            lastError: isValid ? null : 'Invalid Signature'
-        }
-    });
-
-    if (!isValid) {
-        return new NextResponse("Invalid Signature", { status: 401 });
-    }
-
-    // Inline processing helper
+    // Process Event
     try {
-        const { handleWebhookJob } = await import("@/lib/messenger-service");
-        await handleWebhookJob(event.id, payload);
-    } catch (e) {
-        console.error("Inline processing failed", e);
+        const { processMessengerEvent } = await import("@/lib/messenger-service");
+        // Await to ensure logs are written before lambda freezes, but be mindful of timeouts.
+        await processMessengerEvent(payload);
+    } catch (e: any) {
+        console.error("Processing failed", e);
+        // We still return 200 to Meta to stop retries if it's a code error
     }
 
     return NextResponse.json({ ok: true });

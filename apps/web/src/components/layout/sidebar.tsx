@@ -25,30 +25,21 @@ const sidebarItems = [
     {
         title: "Principal",
         items: [
-            { label: "Geral", href: "/dashboard", icon: Home },
+            { label: "Dashboard", href: "/dashboard", icon: Home },
         ]
     },
     {
-        title: "Automações",
+        title: "Automação",
         items: [
-            { label: "Automações", href: "/workflows", icon: Zap },
-            { label: "Respostas", href: "/responses", icon: MessageSquare },
+            { label: "Regras", href: "/workflows", icon: Zap },
+            { label: "Logs", href: "/logs", icon: MessageSquare },
         ]
     },
     {
-        title: "Leads",
+        title: "Sistema",
         items: [
-            { label: "Inbox", href: "/inbox", icon: Inbox },
-            { label: "Live Chat", href: "/chat", icon: MessageCircle },
-            { label: "Ranking", href: "/ranking", icon: Trophy },
-            { label: "Contatos", href: "/contacts", icon: Users },
-        ]
-    },
-    {
-        title: "Comunidade",
-        items: [
-            { label: "Explorar", href: "/explore", icon: Compass },
-            { label: "Meus Templates", href: "/templates", icon: LayoutTemplate },
+            { label: "Integrações", href: "/settings/integracoes", icon: Settings },
+            // { label: "Configurações", href: "/settings/geral", icon: Settings }, // If needed
         ]
     }
 ]

@@ -23,34 +23,14 @@ model Workspace {
   ownerId           String
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-  connectedAccounts ConnectedAccount[]
-  responseTemplates ResponseTemplate[]
-  workflows         Workflow[]
-  workflowFolders   WorkflowFolder[]
+  
   owner             User               @relation(fields: [ownerId], references: [id])
   members           WorkspaceMember[]
+  
+  // New Messenger Architecture
+  messengerPages    MessengerPage[]
   contacts          Contact[]
-}
-
-model Contact {
-  id              String   @id @default(uuid())
-  workspaceId     String
-  instagramId     String
-  username        String?
-  fullName        String?
-  profilePicUrl   String?
-  isVerified      Boolean  @default(false)
-  isFollowing     Boolean  @default(false)
-  followerCount   Int      @default(0)
-  lastInteraction DateTime @default(now())
-  tags            String[] @default([])
-
-  workspace       Workspace @relation(fields: [workspaceId], references: [id])
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@unique([workspaceId, instagramId])
+  automationRules   AutomationRule[]
 }
 
 model WorkspaceMember {
@@ -65,115 +45,100 @@ model WorkspaceMember {
   @@unique([workspaceId, userId])
 }
 
-model ConnectedAccount {
-  id                   String    @id @default(uuid())
+// ---------------------------------------------------------
+// MESSENGER SPECIFIC MODELS
+// ---------------------------------------------------------
+
+model MessengerPage {
+  id                   String   @id @default(uuid())
   workspaceId          String
-  providerAccountId    String    // Facebook Page ID or IG User ID
-  name                 String    // Page Name or Username
-  profilePicUrl        String?
-  status               String
-  accessTokenEncrypted String
-  tokenExpiresAt       DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  pageId               String   @unique
+  pageName             String
+  pageAccessToken      String
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
   workspace            Workspace @relation(fields: [workspaceId], references: [id])
-
-  @@unique([workspaceId, providerAccountId])
+  logs                 MessageLog[]
 }
 
-model WorkflowFolder {
-  id          String     @id @default(uuid())
-  workspaceId String
-  name        String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  workflows   Workflow[]
-  workspace   Workspace  @relation(fields: [workspaceId], references: [id])
+model Contact {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  psid            String   // Messenger User ID (Page Scoped ID)
+  firstName       String?
+  lastName        String?
+  profilePicUrl   String?
+  firstSeenAt     DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+  lastMessageText String?
+  tags            Json?    // ["tag1", "tag2"]
+  
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  logs            MessageLog[]
+  ruleExecutions  RuleExecution[]
+
+  @@unique([workspaceId, psid])
 }
 
-model Workflow {
-  id             String            @id @default(uuid())
-  workspaceId    String
-  folderId       String?
-  title          String
-  description    String?
-  channels       Json
-  isActive       Boolean           @default(false)
-  status         String
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  publishedAt    DateTime?
-  runCount       Int               @default(0)
-  lastRunAt      DateTime?
-  flowDefinition Json?
-  automationRuns AutomationRun[]
-  folder         WorkflowFolder?   @relation(fields: [folderId], references: [id])
-  workspace      Workspace         @relation(fields: [workspaceId], references: [id])
-  actions        WorkflowAction[]
-  triggers       WorkflowTrigger[]
+model AutomationRule {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  name            String
+  isActive        Boolean  @default(true)
+  priority        Int      @default(0)
+  matchType       String   // CONTAINS, EXACT, STARTS_WITH, REGEX
+  keywords        String[]
+  caseSensitive   Boolean  @default(false)
+  normalizeAccents Boolean @default(true)
+  matchOperator   String   // ANY, ALL
+  cooldownSeconds Int      @default(0)
+  schedule        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  actions         AutomationAction[]
+  executions      RuleExecution[]
 }
 
-model WorkflowTrigger {
-  id         String   @id @default(uuid())
-  workflowId String
-  type       String
-  configJson Json
-  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+model AutomationAction {
+  id        String   @id @default(uuid())
+  ruleId    String
+  type      String   // TEXT, BUTTON_TEMPLATE, QUICK_REPLIES, AUDIO, FILE, IMAGE
+  payload   Json
+  order     Int      @default(0)
+  delayMs   Int      @default(0)
+  
+  rule      AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 }
 
-model WorkflowAction {
-  id         String   @id @default(uuid())
-  workflowId String
-  type       String
-  configJson Json
-  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+model MessageLog {
+  id            String   @id @default(uuid())
+  contactId     String?
+  pageId        String
+  direction     String   // IN, OUT
+  incomingText  String?
+  matchedRuleId String?
+  actionType    String?
+  status        String   // RECEIVED, MATCHED, SENT, FAILED, SKIPPED, DUPLICATE
+  error         String?
+  rawEvent      Json?
+  rawResponse   Json?
+  createdAt     DateTime @default(now())
+
+  contact       Contact? @relation(fields: [contactId], references: [id])
+  page          MessengerPage @relation(fields: [pageId], references: [pageId]) 
 }
 
-model ResponseTemplate {
-  id          String    @id @default(uuid())
-  workspaceId String
-  name        String
-  body        String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-}
+model RuleExecution {
+  id             String   @id @default(uuid())
+  ruleId         String
+  contactId      String
+  lastExecutedAt DateTime @default(now())
+  timesExecuted  Int      @default(1)
 
-model WebhookEvent {
-  id               String          @id @default(uuid())
-  workspaceId      String?
-  platform         String
-  eventType        String
-  platformEventId  String          @unique
-  payloadJson      Json
-  receivedAt       DateTime        @default(now())
-  signatureValid   Boolean
-  processedAt      DateTime?
-  processingStatus String
-  lastError        String?
-  automationRuns   AutomationRun[]
-}
-
-model AutomationRun {
-  id             String             @id @default(uuid())
-  workflowId     String
-  webhookEventId String
-  status         String
-  startedAt      DateTime           @default(now())
-  finishedAt     DateTime?
-  correlationId  String?
-  errorMessage   String?
-  webhookEvent   WebhookEvent       @relation(fields: [webhookEventId], references: [id])
-  workflow       Workflow           @relation(fields: [workflowId], references: [id])
-  logs           AutomationRunLog[]
-}
-
-model AutomationRunLog {
-  id       String        @id @default(uuid())
-  runId    String
-  ts       DateTime      @default(now())
-  level    String
-  message  String
-  metaJson Json?
-  run      AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
 }

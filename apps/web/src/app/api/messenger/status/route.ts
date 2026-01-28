@@ -17,10 +17,10 @@ export async function GET(req: NextRequest) {
         const workspace = await getPrimaryWorkspace(user.id, user.email || '');
 
         // Fetch connected page
-        const account = await prisma.connectedAccount.findFirst({
+        const account = await prisma.messengerPage.findFirst({
             where: {
                 workspaceId: workspace.id,
-                status: 'CONNECTED'
+                isActive: true
             },
             orderBy: {
                 updatedAt: 'desc'

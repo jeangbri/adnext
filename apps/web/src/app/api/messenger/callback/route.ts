@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     try {
         const stateData = JSON.parse(decrypt(state));
-        const { workspaceId, userId } = stateData;
+        const { workspaceId } = stateData;
 
         const appId = process.env.IG_APP_ID!;
         const appSecret = process.env.IG_APP_SECRET!;
@@ -51,52 +51,32 @@ export async function GET(req: NextRequest) {
         if (!pagesRes.ok) throw new Error(pagesData.error?.message || "Failed to fetch pages");
 
         const pages = (pagesData.data || []) as FBPage[];
-
-        // 3. Store Pages in DB
-        // Assuming we repurpose 'InstagramAccount' table or create 'MessengerAccount'?
-        // The prompt says "focado 100% no Messenger".
-        // I will use `InstagramAccount` table for now but mapped to Messenger Pages, or I should really create a new table.
-        // Given constraints and "Remodel", using existing schema is faster but risky if fields differ.
-        // IG schema has `igUserId`, `username`, `profilePicUrl`.
-        // FB Page has `id` (pageId), `name`, `picture` (edge).
-        // I will Map: igUserId -> pageId, username -> pageName.
-        // This keeps the Schema valid without migration for now (unless I can migrate).
-
-        // However, FB Page automations need the PAGE ACCESS TOKEN.
-        // `pagesData` returns `access_token` for each page. This is what we need.
-
         let count = 0;
+
         for (const page of pages) {
-            // Check if page has messaging tasks
-            // if (!page.tasks.includes('MESSAGING')) continue; // Optional check
+            // Check permissions/tasks if strictly needed (e.g. MESSAGING)
+            // if (!page.tasks.includes('MESSAGING')) continue; 
 
-            // Fetche Profile Pic
-            const picRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/picture?redirect=false&access_token=${userAccessToken}`);
-            const picData = await picRes.json();
-            const profilePicUrl = picData.data?.url || '';
+            const encryptedToken = encrypt(page.access_token);
 
-            await prisma.connectedAccount.upsert({
+            await prisma.messengerPage.upsert({
                 where: {
-                    workspaceId_providerAccountId: {
-                        workspaceId,
-                        providerAccountId: page.id
-                    }
+                    pageId: page.id
                 },
                 update: {
-                    name: page.name,
-                    profilePicUrl: profilePicUrl,
-                    status: 'CONNECTED',
-                    accessTokenEncrypted: encrypt(page.access_token), // Page Token
+                    workspaceId, // allow moving workspace? or keep original?
+                    // keeping update means if I connect to new workspace, it moves ownership
+                    pageName: page.name,
+                    pageAccessToken: encryptedToken,
+                    isActive: true,
                     updatedAt: new Date(),
                 },
                 create: {
                     workspaceId,
-                    providerAccountId: page.id,
-                    name: page.name,
-                    profilePicUrl: profilePicUrl,
-                    status: 'CONNECTED',
-                    accessTokenEncrypted: encrypt(page.access_token),
-                    tokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 60) // Long lived usually
+                    pageId: page.id,
+                    pageName: page.name,
+                    pageAccessToken: encryptedToken,
+                    isActive: true
                 }
             });
             count++;
@@ -109,3 +89,4 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/settings/integracoes?error=server_error', req.url));
     }
 }
+
