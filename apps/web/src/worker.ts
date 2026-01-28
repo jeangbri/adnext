@@ -23,7 +23,7 @@ try {
 } catch (e) {
     console.warn('[Worker] Failed to load .env file manually', e);
 }
-import { resumeWorkflowFromJob } from './lib/instagram-service';
+import { resumeWorkflowFromJob } from './lib/messenger-service';
 import IORedis from 'ioredis';
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';

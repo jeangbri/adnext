@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
-import { resumeWorkflowFromJob } from "@/lib/instagram-service";
+import { resumeWorkflowFromJob } from "@/lib/messenger-service";
 
 export const dynamic = 'force-dynamic';
 
