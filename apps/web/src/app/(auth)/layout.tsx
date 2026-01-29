@@ -1,3 +1,5 @@
+import { AuthBackground } from '@/components/auth/auth-background'
+
 export default function AuthLayout({
     children,
 }: {
@@ -5,11 +7,7 @@ export default function AuthLayout({
 }) {
     return (
         <div className="relative flex min-h-screen items-center justify-center bg-black p-4 selection:bg-primary/30 overflow-hidden text-foreground">
-            {/* Ambient Background Elements */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/20 blur-[120px] rounded-full opacity-60" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-primary/15 blur-[120px] rounded-full opacity-40" />
-            </div>
+            <AuthBackground />
 
             <div className="relative z-10 w-full max-w-[420px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 {children}
