@@ -58,8 +58,8 @@ export function Sidebar() {
     return (
         <div className="flex h-screen w-64 flex-col border-r bg-card text-card-foreground">
             <div className="p-6">
-                <Link href="/dashboard" className="flex items-center gap-2 group">
-                    <div className="relative w-8 h-8 transition-transform group-hover:scale-110">
+                <Link href="/dashboard" className="flex items-center justify-center py-2 group">
+                    <div className="relative w-40 h-10 transition-transform group-hover:scale-105">
                         <Image
                             src="/logo.png"
                             alt="AdNext"
@@ -67,7 +67,6 @@ export function Sidebar() {
                             className="object-contain"
                         />
                     </div>
-                    <span className="font-bold text-xl tracking-tight text-white">AdNext</span>
                 </Link>
             </div>
 

@@ -46,8 +46,8 @@ export default function RegisterPage() {
     return (
         <div className="space-y-8">
             {/* Header Section */}
-            <div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in slide-in-from-top-4 duration-1000">
-                <div className="relative w-24 h-24 mb-2 transition-transform hover:scale-105 duration-500">
+            <div className="flex flex-col items-center justify-center animate-in fade-in slide-in-from-top-4 duration-1000 mb-8">
+                <div className="relative w-64 h-20 transition-transform hover:scale-105 duration-500">
                     <Image
                         src="/logo.png"
                         alt="AdNext"
@@ -55,10 +55,6 @@ export default function RegisterPage() {
                         className="object-contain drop-shadow-[0_0_15px_rgba(0,132,255,0.3)]"
                         priority
                     />
-                </div>
-                <div className="text-center space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-white">AdNext</h1>
-                    <p className="text-sm text-zinc-400">Criar nova conta</p>
                 </div>
             </div>
 
