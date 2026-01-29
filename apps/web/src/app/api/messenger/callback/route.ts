@@ -80,6 +80,37 @@ export async function GET(req: NextRequest) {
                     isActive: true
                 }
             });
+
+            // ---------------------------------------------------------
+            // Subscribe App to Page Events (REQUIRED for Webhooks)
+            // ---------------------------------------------------------
+            try {
+                const subscribeUrl = `https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?access_token=${page.access_token}`;
+                const subscribeRes = await fetch(subscribeUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscribed_fields: [
+                            "messages",
+                            "messaging_postbacks",
+                            "messaging_optins",
+                            "message_deliveries",
+                            "message_reads",
+                            "feed" // For comments automation
+                        ]
+                    })
+                });
+
+                if (!subscribeRes.ok) {
+                    const subData = await subscribeRes.json();
+                    console.error(`[Messenger Callback] Failed to subscribe page ${page.name}:`, subData);
+                } else {
+                    console.log(`[Messenger Callback] Subscribed app to page ${page.name}`);
+                }
+            } catch (subErr) {
+                console.error(`[Messenger Callback] Subscription network error:`, subErr);
+            }
+
             count++;
         }
 

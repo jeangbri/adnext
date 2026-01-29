@@ -4,11 +4,12 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Lock, Mail, ArrowRight, MessageCircle, UserPlus } from 'lucide-react'
+import { Lock, Mail, ArrowRight, UserPlus } from 'lucide-react'
 
 export default function RegisterPage() {
     const [email, setEmail] = useState('')
@@ -46,8 +47,14 @@ export default function RegisterPage() {
         <div className="space-y-8">
             {/* Header Section */}
             <div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in slide-in-from-top-4 duration-1000">
-                <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-[0_0_30px_-5px_rgba(0,132,255,0.5)]">
-                    <MessageCircle className="w-8 h-8 text-white" fill="currentColor" />
+                <div className="relative w-24 h-24 mb-2 transition-transform hover:scale-105 duration-500">
+                    <Image
+                        src="/logo.png"
+                        alt="AdNext"
+                        fill
+                        className="object-contain drop-shadow-[0_0_15px_rgba(0,132,255,0.3)]"
+                        priority
+                    />
                 </div>
                 <div className="text-center space-y-1">
                     <h1 className="text-3xl font-bold tracking-tight text-white">AdNext</h1>

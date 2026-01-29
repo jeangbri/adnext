@@ -1,6 +1,7 @@
 "use client"
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -8,7 +9,6 @@ import {
     Zap,
     MessageSquare,
     Inbox,
-    MessageCircle,
     Trophy,
     Users,
     Compass,
@@ -59,8 +59,13 @@ export function Sidebar() {
         <div className="flex h-screen w-64 flex-col border-r bg-card text-card-foreground">
             <div className="p-6">
                 <Link href="/dashboard" className="flex items-center gap-2 group">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center transition-transform group-hover:scale-110 shadow-[0_0_15px_-3px_rgba(0,132,255,0.4)]">
-                        <MessageCircle className="w-5 h-5 text-white" fill="currentColor" />
+                    <div className="relative w-8 h-8 transition-transform group-hover:scale-110">
+                        <Image
+                            src="/logo.png"
+                            alt="AdNext"
+                            fill
+                            className="object-contain"
+                        />
                     </div>
                     <span className="font-bold text-xl tracking-tight text-white">AdNext</span>
                 </Link>
