@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
 
         const appId = process.env.FB_APP_ID!;
         const appSecret = process.env.FB_APP_SECRET!;
-        const redirectUri = `${process.env.APP_URL}/api/messenger/callback`;
+        const baseUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+        const redirectUri = `${baseUrl}/api/messenger/callback`;
 
         // 1. Exchange Code for User Access Token
         const tokenUrl = new URL('https://graph.facebook.com/v19.0/oauth/access_token');

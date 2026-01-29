@@ -27,15 +27,17 @@ export async function GET(req: NextRequest) {
 
     // Facebook Login Configuration
     const appId = process.env.FB_APP_ID!; // Using existing env var for simpler migration, or add MESSENGER_APP_ID later
-    const redirectUri = `${process.env.APP_URL}/api/messenger/callback`; // Updated callback URI
+    const baseUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const redirectUri = `${baseUrl}/api/messenger/callback`; // Updated callback URI
 
     // Scopes for Messenger Automation
     const scopes = [
+        'public_profile',
         'pages_show_list',
-        'pages_messaging',
-        'pages_manage_metadata',
         'pages_read_engagement',
-        'public_profile'
+        'instagram_basic',
+        'instagram_manage_messages',
+        'instagram_manage_comments'
     ].join(',');
 
     const authUrl = new URL('https://www.facebook.com/v19.0/dialog/oauth');
