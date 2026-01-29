@@ -270,10 +270,35 @@ async function sendAction(page: any, psid: string, action: any, refLogId: string
                         template_type: "button",
                         text: payload.text,
                         buttons: payload.buttons?.map((b: any) => ({
-                            type: "web_url", // simplified
-                            url: b.url,
-                            title: b.title
+                            type: b.type || "web_url",
+                            url: b.type === 'web_url' ? b.url : undefined,
+                            title: b.title,
+                            payload: b.type === 'postback' ? b.payload : undefined
                         }))
+                    }
+                }
+            };
+            break;
+
+        case 'GENERIC_TEMPLATE':
+            messageBody.message = {
+                attachment: {
+                    type: "template",
+                    payload: {
+                        template_type: "generic",
+                        elements: [
+                            {
+                                title: payload.title,
+                                subtitle: payload.subtitle,
+                                image_url: payload.imageUrl,
+                                buttons: payload.buttons?.map((b: any) => ({
+                                    type: b.type || "web_url",
+                                    url: b.type === 'web_url' ? b.url : undefined,
+                                    title: b.title,
+                                    payload: b.type === 'postback' ? b.payload : undefined
+                                }))
+                            }
+                        ]
                     }
                 }
             };
