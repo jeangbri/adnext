@@ -29,6 +29,12 @@ model Workspace {
   
   // New Messenger Architecture
   messengerPages    MessengerPage[]
+
+  // Workflow integration (Fix for missing relations)
+  instagramAccounts InstagramAccount[]
+  workflowFolders   WorkflowFolder[]
+  workflows        Workflow[]
+  responseTemplates ResponseTemplate[]
   contacts          Contact[]
   automationRules   AutomationRule[]
 }
@@ -141,4 +147,137 @@ model RuleExecution {
 
   rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------
+// WORKFLOW SYSTEM MODELS (From packages/db)
+// ---------------------------------------------------------
+
+model InstagramAccount {
+  id                   String   @id @default(uuid())
+  workspaceId          String
+  workspace            Workspace @relation(fields: [workspaceId], references: [id])
+  igUserId             String
+  username             String
+  profilePicUrl        String?
+  status               String   // CONNECTED, DISCONNECTED, TOKEN_EXPIRED
+  accessTokenEncrypted String
+  tokenExpiresAt       DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  followers         InstagramFollower[]
+  
+  @@unique([workspaceId, igUserId])
+}
+
+model InstagramFollower {
+  id              String   @id @default(uuid())
+  igUserId        String   
+  username        String?
+  tags            String[] @default([])
+  accountId       String
+  account         InstagramAccount @relation(fields: [accountId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([igUserId, accountId])
+}
+
+model WorkflowFolder {
+  id          String   @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workflows   Workflow[]
+}
+
+model Workflow {
+  id          String   @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  folderId    String?
+  folder      WorkflowFolder? @relation(fields: [folderId], references: [id])
+  title       String
+  description String?
+  channels    Json     // ["dm","story","feed"]
+  flowDefinition Json? // Stores the visual graph (nodes/edges) state
+  isActive    Boolean  @default(false)
+  status      String   // DRAFT, PUBLISHED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime?
+  runCount    Int      @default(0)
+  lastRunAt   DateTime?
+
+  triggers        WorkflowTrigger[]
+  actions         WorkflowAction[]
+  automationRuns  AutomationRun[]
+}
+
+model WorkflowTrigger {
+  id          String   @id @default(uuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  type        String   // DM_RECEIVED, STORY_REPLY, FEED_COMMENT
+  configJson  Json
+}
+
+model WorkflowAction {
+  id          String   @id @default(uuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  type        String   // SEND_DM, REPLY_COMMENT
+  configJson  Json
+}
+
+model ResponseTemplate {
+  id          String   @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  name        String
+  body        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WebhookEvent {
+  id              String   @id @default(uuid())
+  workspaceId     String?
+  platform        String   // INSTAGRAM
+  eventType       String
+  platformEventId String   @unique // idempotency key
+  payloadJson     Json
+  receivedAt      DateTime @default(now())
+  signatureValid  Boolean
+  processedAt     DateTime?
+  processingStatus String   // PENDING, PROCESSING, DONE, ERROR
+  lastError       String?
+  automationRuns  AutomationRun[]
+}
+
+model AutomationRun {
+  id              String   @id @default(uuid())
+  workflowId      String
+  workflow        Workflow @relation(fields: [workflowId], references: [id])
+  webhookEventId  String
+  webhookEvent    WebhookEvent @relation(fields: [webhookEventId], references: [id])
+  status          String   // SUCCESS, ERROR, SKIPPED
+  startedAt       DateTime @default(now())
+  finishedAt      DateTime?
+  correlationId   String?
+  errorMessage    String?
+  logs            AutomationRunLog[]
+}
+
+model AutomationRunLog {
+  id        String   @id @default(uuid())
+  runId     String
+  run       AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ts        DateTime @default(now())
+  level     String   // INFO, WARN, ERROR
+  message   String
+  metaJson  Json?
 }
