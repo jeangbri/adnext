@@ -23,7 +23,7 @@ try {
 } catch (e) {
     console.warn('[Worker] Failed to load .env file manually', e);
 }
-import { resumeWorkflowFromJob } from './lib/messenger-service';
+// import { resumeWorkflowFromJob } from './lib/messenger-service';
 import IORedis from 'ioredis';
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -38,8 +38,8 @@ const worker = new Worker('instagram-events', async (job) => {
     console.log(`[Worker] Processing job ${job.name} (${job.id})`);
     if (job.name === 'resumeWorkflow') {
         try {
-            await resumeWorkflowFromJob(job.data);
-            console.log(`[Worker] Job ${job.id} done.`);
+            // await resumeWorkflowFromJob(job.data);
+            console.log(`[Worker] Job ${job.id} done (Skipped - Legacy).`);
         } catch (error) {
             console.error(`[Worker] Job ${job.id} failed:`, error);
             throw error;
