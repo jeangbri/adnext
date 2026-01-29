@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
         'public_profile',
         'pages_show_list',
         'pages_read_engagement',
+        'pages_messaging', // Required for sending messages
+        'pages_manage_metadata', // Required for webhooks
         'instagram_basic',
         'instagram_manage_messages',
         'instagram_manage_comments'
