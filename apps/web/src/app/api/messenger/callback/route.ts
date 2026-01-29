@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
         const stateData = JSON.parse(decrypt(state));
         const { workspaceId } = stateData;
 
-        const appId = process.env.IG_APP_ID!;
-        const appSecret = process.env.IG_APP_SECRET!;
+        const appId = process.env.FB_APP_ID!;
+        const appSecret = process.env.FB_APP_SECRET!;
         const redirectUri = `${process.env.APP_URL}/api/messenger/callback`;
 
         // 1. Exchange Code for User Access Token

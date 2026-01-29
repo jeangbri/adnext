@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const challenge = searchParams.get("hub.challenge");
 
     // We can reuse the same verify token env var
-    const myToken = process.env.IG_VERIFY_TOKEN;
+    const myToken = process.env.FB_MESSENGER_VERIFY_TOKEN;
 
     if (mode === "subscribe" && token === myToken) {
         console.log("Messenger Webhook verified");
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get("x-hub-signature-256");
     const bodyText = await req.text();
 
-    const secret = process.env.IG_APP_SECRET!;
+    const secret = process.env.FB_APP_SECRET!;
 
     let isValid = false;
     try {

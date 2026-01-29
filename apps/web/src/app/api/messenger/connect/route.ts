@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     const state = encrypt(stateData);
 
     // Facebook Login Configuration
-    const appId = process.env.IG_APP_ID!; // Using existing env var for simpler migration, or add MESSENGER_APP_ID later
+    const appId = process.env.FB_APP_ID!; // Using existing env var for simpler migration, or add MESSENGER_APP_ID later
     const redirectUri = `${process.env.APP_URL}/api/messenger/callback`; // Updated callback URI
 
     // Scopes for Messenger Automation
