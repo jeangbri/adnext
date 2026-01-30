@@ -240,7 +240,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                         <Switch id="active-mode" checked={isActive} onCheckedChange={setIsActive} />
                         <Label htmlFor="active-mode" className="text-xs text-zinc-400 cursor-pointer">{isActive ? 'Ativo' : 'Pausado'}</Label>
                     </div>
-                    <Button onClick={handleSave} disabled={loading} className="bg-primary hover:bg-primary/90 text-white rounded-full px-6 shadow-lg shadow-primary/20">
+                    <Button onClick={handleSave} disabled={loading} className="bg-[#0084FF] hover:bg-[#0070D1] text-white rounded-full px-6 shadow-lg shadow-blue-500/20">
                         {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                         Salvar Regra
                     </Button>
