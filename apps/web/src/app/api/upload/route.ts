@@ -25,10 +25,20 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Upload using Service Role (Bypasses RLS)
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !supabaseServiceKey) {
+            console.error("Missing Supabase Env Vars", {
+                url: !!supabaseUrl,
+                key: !!supabaseServiceKey
+            });
+            return NextResponse.json({
+                error: "Server configuration error: Missing Supabase keys. Please add SUPABASE_SERVICE_ROLE_KEY to environment variables."
+            }, { status: 500 });
+        }
+
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
