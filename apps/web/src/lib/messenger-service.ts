@@ -50,15 +50,32 @@ async function handleMessagingEvent(pageId: string, event: MessengerEvent) {
     // 1. Deduplication (Check MID)
     const mid = event.message?.mid || (event.postback as any)?.mid;
     if (mid) {
-        // We use rawEvent query to check if we already processed this MID
-        // Since JSON queries can be slow, ideally we'd have a separate ID table, 
-        // but for now we'll trust the logic or ignore strict dedup if it impacts perf too much on JSON.
-        // Better: Check active logs in last few minutes? 
-        // For simplicity in this task, we will skip complex SQL dedup and rely on idempotent logic where possible.
-        // However, user requested dedup.
-        // Let's try to query by a unique constraint if we had one.
-        // We defined MessageLog but not unique MID. 
-        // Let's check recent logs for this contact.
+        // Check if we already processed this MID in the last 2 minutes
+        // Meta retries usually happen within seconds, but we check 2 mins to be safe.
+        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+
+        const recentLogs = await prisma.messageLog.findMany({
+            where: {
+                pageId: pageId,
+                direction: 'IN',
+                createdAt: { gte: twoMinutesAgo },
+            },
+            select: { rawEvent: true },
+            take: 50,
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const isDuplicate = recentLogs.some(log => {
+            const evt = log.rawEvent as any;
+            const msgMid = evt?.message?.mid;
+            const pbMid = evt?.postback?.mid;
+            return msgMid === mid || pbMid === mid;
+        });
+
+        if (isDuplicate) {
+            console.log(`[Deduplication] Skipping duplicate MID: ${mid}`);
+            return;
+        }
     }
 
     // 2. Ignore Echoes (Self-sent messages)

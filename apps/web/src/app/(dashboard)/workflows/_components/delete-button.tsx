@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Trash2, Loader2 } from "lucide-react"
 import { useState } from "react"
-import { deleteRuleAction } from "./actions"
+import { deleteRuleAction } from "../actions"
 import { toast } from "sonner"
 
 export function DeleteRuleButton({ ruleId }: { ruleId: string }) {
