@@ -124,7 +124,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
 
         const fileExt = file.name.split('.').pop()
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `${fileName}` // Removed 'uploads/' prefix to test simplified path
+        const filePath = `uploads/${fileName}`
 
         setUploading({ ...uploading, [actionIdx]: true })
 
