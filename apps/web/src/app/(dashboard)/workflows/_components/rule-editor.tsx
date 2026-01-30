@@ -117,35 +117,29 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
         if (!file) return
 
         // Basic validation
-        if (file.size > 10 * 1024 * 1024) { // 10MB limit
-            toast.error('Arquivo muito grande (Máx 10MB)')
+        if (file.size > 20 * 1024 * 1024) { // 20MB limit
+            toast.error('Arquivo muito grande (Máx 20MB)')
             return
         }
-
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `uploads/${fileName}`
 
         setUploading({ ...uploading, [actionIdx]: true })
 
         try {
-            console.log('Uploading file:', fileName, 'to bucket: media')
-            const { error: uploadError, data } = await supabase.storage
-                .from('media')
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: false
-                })
+            const formData = new FormData()
+            formData.append('file', file)
 
-            if (uploadError) {
-                console.error('Supabase Upload Error:', uploadError)
-                throw uploadError
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Erro no upload')
             }
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('media')
-                .getPublicUrl(filePath)
-
+            const publicUrl = data.url
             console.log('Upload success, public URL:', publicUrl)
 
             updateAction(actionIdx, `payload.${field}`, publicUrl)
@@ -155,7 +149,6 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             toast.error('Erro no upload: ' + (error.message || 'Erro desconhecido'))
         } finally {
             setUploading({ ...uploading, [actionIdx]: false })
-            // Reset input value to allow re-uploading same file if needed
             e.target.value = ''
         }
     }
