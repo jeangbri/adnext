@@ -116,34 +116,47 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
         const file = e.target.files?.[0]
         if (!file) return
 
+        // Basic validation
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            toast.error('Arquivo muito grande (Máx 10MB)')
+            return
+        }
+
         const fileExt = file.name.split('.').pop()
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `uploads/${fileName}`
+        const filePath = `${fileName}` // Removed 'uploads/' prefix to test simplified path
 
         setUploading({ ...uploading, [actionIdx]: true })
 
         try {
-            const { error: uploadError } = await supabase.storage
+            console.log('Uploading file:', fileName, 'to bucket: media')
+            const { error: uploadError, data } = await supabase.storage
                 .from('media')
-                .upload(filePath, file)
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                })
 
-            if (uploadError) throw uploadError
+            if (uploadError) {
+                console.error('Supabase Upload Error:', uploadError)
+                throw uploadError
+            }
 
             const { data: { publicUrl } } = supabase.storage
                 .from('media')
                 .getPublicUrl(filePath)
 
-            // Depending on field, update specific payload prop
-            // For AUDIO/IMAGE it's 'url' (payload.url)
-            // For GENERIC_TEMPLATE it might be 'imageUrl' (payload.imageUrl)
-            // The helper updateAction needs 'payload.field' format
+            console.log('Upload success, public URL:', publicUrl)
+
             updateAction(actionIdx, `payload.${field}`, publicUrl)
             toast.success('Arquivo enviado com sucesso!')
         } catch (error: any) {
-            console.error(error)
-            toast.error('Erro no upload: ' + error.message)
+            console.error('Upload catch error:', error)
+            toast.error('Erro no upload: ' + (error.message || 'Erro desconhecido'))
         } finally {
             setUploading({ ...uploading, [actionIdx]: false })
+            // Reset input value to allow re-uploading same file if needed
+            e.target.value = ''
         }
     }
 
