@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus, Zap, Trash2, Edit } from "lucide-react"
 import { redirect } from "next/navigation"
+import { DeleteRuleButton } from "./_components/delete-button"
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function AutomationsPage() {
                     <p className="text-muted-foreground">Gerencie suas regras de resposta automática para o Messenger.</p>
                 </div>
                 <Link href="/workflows/create">
-                    <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
+                    <Button className="bg-[#0084FF] hover:bg-[#0070D1] text-white gap-2 shadow-lg shadow-blue-500/20">
                         <Plus className="w-4 h-4" />
                         Nova Regra
                     </Button>
@@ -96,8 +97,7 @@ export default async function AutomationsPage() {
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
                                             </Link>
-                                            {/* Delete button (would need client component or form action) */}
-                                            {/* Using Link for now as placeholder for delete logic via separate route or similar */}
+                                            <DeleteRuleButton ruleId={rule.id} />
                                         </div>
                                     </td>
                                 </tr>
