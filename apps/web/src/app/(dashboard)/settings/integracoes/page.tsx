@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 
 export default function IntegrationsPage() {
     const [loading, setLoading] = useState(true)
-    const [account, setAccount] = useState<any>(null)
+    const [accounts, setAccounts] = useState<any[]>([])
     const router = useRouter()
     const supabase = createClient()
 
@@ -27,7 +27,7 @@ export default function IntegrationsPage() {
             const res = await fetch('/api/messenger/status')
             if (res.ok) {
                 const data = await res.json()
-                setAccount(data.account)
+                setAccounts(data.accounts || [])
             }
         } catch (e) {
             console.error(e)
@@ -44,10 +44,14 @@ export default function IntegrationsPage() {
         window.location.href = '/api/messenger/connect?revalidate=true'
     }
 
-    const handleTestSend = async () => {
+    const handleTestSend = async (pageId: string) => {
         try {
             setLoading(true)
-            const res = await fetch('/api/test/send', { method: 'POST' })
+            const res = await fetch('/api/test/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pageId })
+            })
             const data = await res.json()
             if (res.ok) {
                 alert(`Mensagem enviada para ${data.recipient}!`)
@@ -77,13 +81,19 @@ export default function IntegrationsPage() {
                             </div>
                             <div>
                                 <CardTitle className="text-white">Messenger & Facebook</CardTitle>
-                                <CardDescription className="text-zinc-400">Conecte sua Página para responder automaticamente.</CardDescription>
+                                <CardDescription className="text-zinc-400">Conecte suas Páginas para responder automaticamente.</CardDescription>
                             </div>
                         </div>
-                        {account?.isActive ? (
-                            <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">
-                                <CheckCircle className="w-3 h-3 mr-1" /> Conectado
-                            </Badge>
+                        {accounts.length > 0 ? (
+                            <div className="flex gap-2">
+                                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">
+                                    <CheckCircle className="w-3 h-3 mr-1" /> {accounts.length} Conectado(s)
+                                </Badge>
+                                <Button variant="outline" size="sm" onClick={handleRevalidate} className="h-6 text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                                    <RefreshCw className="w-3 h-3 mr-1" />
+                                    Revalidar / Adicionar Mais
+                                </Button>
+                            </div>
                         ) : (
                             <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 border-zinc-700">Desconectado</Badge>
                         )}
@@ -92,17 +102,25 @@ export default function IntegrationsPage() {
                 <CardContent>
                     {loading ? (
                         <div className="h-20 animate-pulse bg-zinc-800 rounded-md" />
-                    ) : account ? (
-                        <div className="rounded-xl border border-zinc-800 p-4 bg-black/20">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
-                                    {account.pageName.charAt(0)}
+                    ) : accounts.length > 0 ? (
+                        <div className="space-y-3">
+                            {accounts.map((account) => (
+                                <div key={account.id} className="rounded-xl border border-zinc-800 p-4 bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                                            {account.pageName.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-white text-lg">{account.pageName}</p>
+                                            <p className="text-xs text-zinc-500 font-mono">Page ID: {account.pageId}</p>
+                                        </div>
+                                    </div>
+                                    <Button variant="secondary" size="sm" onClick={() => handleTestSend(account.pageId)} disabled={loading}>
+                                        <Smartphone className="w-4 h-4 mr-2" />
+                                        Testar Envio
+                                    </Button>
                                 </div>
-                                <div>
-                                    <p className="font-semibold text-white text-lg">{account.pageName}</p>
-                                    <p className="text-xs text-zinc-500 font-mono">Page ID: {account.pageId}</p>
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     ) : (
                         <div className="text-sm text-zinc-500">
@@ -111,21 +129,10 @@ export default function IntegrationsPage() {
                     )}
                 </CardContent>
                 <CardFooter className="flex gap-2">
-                    {!account || !account.isActive ? (
+                    {accounts.length === 0 && (
                         <Button onClick={handleConnect} disabled={loading} className="bg-primary hover:bg-primary/90 text-white shadow-[0_0_20px_-5px_rgba(0,132,255,0.3)]">
                             Conectar Facebook Page
                         </Button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={handleRevalidate} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Revalidar
-                            </Button>
-                            <Button variant="secondary" onClick={handleTestSend} disabled={loading}>
-                                <Smartphone className="w-4 h-4 mr-2" />
-                                Testar Envio
-                            </Button>
-                        </div>
                     )}
                 </CardFooter>
             </Card>

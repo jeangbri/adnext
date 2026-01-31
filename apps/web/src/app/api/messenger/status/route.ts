@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
         const workspace = await getPrimaryWorkspace(user.id, user.email || '');
 
         // Fetch connected page
-        const account = await prisma.messengerPage.findFirst({
+        const accounts = await prisma.messengerPage.findMany({
             where: {
                 workspaceId: workspace.id,
                 isActive: true
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        return NextResponse.json({ account });
+        return NextResponse.json({ accounts });
     } catch (e) {
         console.error(e);
         return NextResponse.json({ error: "Server Error" }, { status: 500 });

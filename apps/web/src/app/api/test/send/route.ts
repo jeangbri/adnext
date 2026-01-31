@@ -13,11 +13,25 @@ export async function POST(req: NextRequest) {
 
     const workspace = await getPrimaryWorkspace(user.id, user.email || '');
 
-    const page = await prisma.messengerPage.findFirst({
-        where: { workspaceId: workspace.id, isActive: true }
-    });
+    const body = await req.json().catch(() => ({}));
+    const { pageId } = body;
 
-    if (!page) return NextResponse.json({ error: "No active page found" }, { status: 404 });
+    let page;
+    if (pageId) {
+        page = await prisma.messengerPage.findFirst({
+            where: {
+                workspaceId: workspace.id,
+                pageId: pageId,
+                isActive: true
+            }
+        });
+    } else {
+        page = await prisma.messengerPage.findFirst({
+            where: { workspaceId: workspace.id, isActive: true }
+        });
+    }
+
+    if (!page) return NextResponse.json({ error: "Page not found or not active" }, { status: 404 });
 
     // Find last contact
     const contact = await prisma.contact.findFirst({

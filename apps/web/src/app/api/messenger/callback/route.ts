@@ -45,13 +45,27 @@ export async function GET(req: NextRequest) {
 
         const userAccessToken = tokenData.access_token;
 
-        // 2. Get User's Pages
-        const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${userAccessToken}&limit=100`);
-        const pagesData = await pagesRes.json();
+        // 2. Get All User's Pages (Recursive Pagination)
+        let allPages: FBPage[] = [];
+        let nextUrl = `https://graph.facebook.com/v19.0/me/accounts?access_token=${userAccessToken}&limit=100`;
 
-        if (!pagesRes.ok) throw new Error(pagesData.error?.message || "Failed to fetch pages");
+        while (true) {
+            const pagesRes = await fetch(nextUrl);
+            const pagesData = await pagesRes.json();
 
-        const pages = (pagesData.data || []) as FBPage[];
+            if (!pagesRes.ok) throw new Error(pagesData.error?.message || "Failed to fetch pages");
+
+            const currentPages = (pagesData.data || []) as FBPage[];
+            allPages = [...allPages, ...currentPages];
+
+            if (pagesData.paging?.next) {
+                nextUrl = pagesData.paging.next;
+            } else {
+                break;
+            }
+        }
+
+        const pages = allPages;
         let count = 0;
 
         for (const page of pages) {
