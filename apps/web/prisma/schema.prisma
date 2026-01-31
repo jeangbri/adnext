@@ -67,6 +67,8 @@ model MessengerPage {
   
   workspace            Workspace @relation(fields: [workspaceId], references: [id])
   logs                 MessageLog[]
+  getStartedPayload    String?
+  iceBreakers          Json?
 }
 
 model Contact {
@@ -107,6 +109,7 @@ model AutomationRule {
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
   actions         AutomationAction[]
   executions      RuleExecution[]
+  pageIds         String[] @default([])
 }
 
 model AutomationAction {

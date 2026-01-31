@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -50,6 +50,23 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
     const [matchOperator, setMatchOperator] = useState(rule?.matchOperator || 'ANY')
     const [keywordInput, setKeywordInput] = useState('')
     const [keywords, setKeywords] = useState<string[]>(rule?.keywords || [])
+
+    // Page Selection State
+    const [accounts, setAccounts] = useState<any[]>([])
+    const [selectedPageIds, setSelectedPageIds] = useState<string[]>(rule?.pageIds || [])
+
+    useEffect(() => {
+        const fetchPages = async () => {
+            try {
+                const res = await fetch('/api/messenger/status')
+                if (res.ok) {
+                    const data = await res.json()
+                    setAccounts(data.accounts || [])
+                }
+            } catch (e) { console.error(e) }
+        }
+        fetchPages()
+    }, [])
 
     // Actions State
     const [actions, setActions] = useState<any[]>(rule?.actions || [])
@@ -192,6 +209,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             matchType,
             matchOperator,
             keywords,
+            pageIds: selectedPageIds,
             actions
         }
 
@@ -257,6 +275,53 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                             <CardDescription>Defina quando esta automação será disparada.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-5">
+                            <div className="space-y-4 pb-4 border-b border-white/5">
+                                <Label className="text-xs uppercase tracking-wider text-zinc-500">Páginas (Onde Executar)</Label>
+                                {loading && accounts.length === 0 ? (
+                                    <div className="text-xs text-zinc-500 flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Carregando páginas...</div>
+                                ) : accounts.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {accounts.map(account => (
+                                            <div
+                                                key={account.id}
+                                                onClick={() => {
+                                                    if (selectedPageIds.includes(account.pageId)) {
+                                                        setSelectedPageIds(selectedPageIds.filter(id => id !== account.pageId))
+                                                    } else {
+                                                        setSelectedPageIds([...selectedPageIds, account.pageId])
+                                                    }
+                                                }}
+                                                className={`
+                                                    cursor-pointer rounded-lg border p-3 flex items-center gap-3 transition-all
+                                                    ${selectedPageIds.includes(account.pageId)
+                                                        ? 'bg-blue-500/10 border-blue-500/50 hover:bg-blue-500/20'
+                                                        : 'bg-black/20 border-zinc-800 hover:border-zinc-700'
+                                                    }
+                                                `}
+                                            >
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${selectedPageIds.includes(account.pageId) ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>
+                                                    {account.pageName.charAt(0)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-sm font-medium truncate ${selectedPageIds.includes(account.pageId) ? 'text-blue-100' : 'text-zinc-300'}`}>
+                                                        {account.pageName}
+                                                    </p>
+                                                    <p className="text-[10px] text-zinc-500 truncate">ID: {account.pageId}</p>
+                                                </div>
+                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${selectedPageIds.includes(account.pageId) ? 'bg-blue-500 border-blue-500' : 'border-zinc-600'}`}>
+                                                    {selectedPageIds.includes(account.pageId) && <div className="w-2 h-2 rounded-full bg-white" />}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-xs text-yellow-500/80 bg-yellow-500/10 p-3 rounded border border-yellow-500/20">
+                                        Nenhuma página conectada. Vá em Configurações &gt; Integrações.
+                                    </div>
+                                )}
+                                <p className="text-[10px] text-zinc-500">Se nenhuma for selecionada, a regra será aplicada a <strong>TODAS</strong> as páginas.</p>
+                            </div>
+
                             <div className="space-y-2">
                                 <Label className="text-xs uppercase tracking-wider text-zinc-500">Nome Identificador</Label>
                                 <Input

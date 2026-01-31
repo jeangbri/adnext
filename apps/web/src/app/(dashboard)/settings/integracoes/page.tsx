@@ -4,13 +4,24 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, RefreshCw, CheckCircle, Smartphone } from 'lucide-react'
+import { MessageCircle, RefreshCw, CheckCircle, Smartphone, Settings, Plus, Trash2 } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function IntegrationsPage() {
     const [loading, setLoading] = useState(true)
     const [accounts, setAccounts] = useState<any[]>([])
+
+    // Config Dialog State
+    const [configOpen, setConfigOpen] = useState(false)
+    const [selectedAccount, setSelectedAccount] = useState<any>(null)
+    const [getStartedPayload, setGetStartedPayload] = useState('')
+    const [iceBreakers, setIceBreakers] = useState<{ question: string, payload: string }[]>([])
+
     const router = useRouter()
     const supabase = createClient()
 
@@ -65,6 +76,61 @@ export default function IntegrationsPage() {
         }
     }
 
+    const handleOpenConfig = (account: any) => {
+        setSelectedAccount(account)
+        setGetStartedPayload(account.getStartedPayload || '')
+        setIceBreakers(account.iceBreakers && Array.isArray(account.iceBreakers) ? account.iceBreakers : [])
+        setConfigOpen(true)
+    }
+
+    const handleSaveConfig = async () => {
+        if (!selectedAccount) return
+
+        try {
+            setLoading(true)
+            const res = await fetch('/api/messenger/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pageId: selectedAccount.pageId,
+                    getStartedPayload,
+                    iceBreakers
+                })
+            })
+
+            const data = await res.json()
+            if (res.ok) {
+                toast.success('Configurações salvas e enviadas para o Facebook!')
+                setConfigOpen(false)
+                fetchStatus() // Refresh to update local state
+            } else {
+                toast.error('Erro: ' + data.error)
+            }
+        } catch (e) {
+            toast.error('Erro ao salvar configurações')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const addIceBreaker = () => {
+        if (iceBreakers.length >= 4) {
+            toast.error('Máximo de 4 perguntas frequentes')
+            return
+        }
+        setIceBreakers([...iceBreakers, { question: '', payload: '' }])
+    }
+
+    const updateIceBreaker = (idx: number, field: 'question' | 'payload', value: string) => {
+        const newBreakers = [...iceBreakers]
+        newBreakers[idx][field] = value
+        setIceBreakers(newBreakers)
+    }
+
+    const removeIceBreaker = (idx: number) => {
+        setIceBreakers(iceBreakers.filter((_, i) => i !== idx))
+    }
+
     return (
         <div className="space-y-6">
             <div>
@@ -115,10 +181,16 @@ export default function IntegrationsPage() {
                                             <p className="text-xs text-zinc-500 font-mono">Page ID: {account.pageId}</p>
                                         </div>
                                     </div>
-                                    <Button variant="secondary" size="sm" onClick={() => handleTestSend(account.pageId)} disabled={loading}>
-                                        <Smartphone className="w-4 h-4 mr-2" />
-                                        Testar Envio
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => handleOpenConfig(account)} disabled={loading} className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
+                                            <Settings className="w-4 h-4 mr-2" />
+                                            Configurar
+                                        </Button>
+                                        <Button variant="secondary" size="sm" onClick={() => handleTestSend(account.pageId)} disabled={loading}>
+                                            <Smartphone className="w-4 h-4 mr-2" />
+                                            Testar Envio
+                                        </Button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -136,6 +208,92 @@ export default function IntegrationsPage() {
                     )}
                 </CardFooter>
             </Card>
+
+            <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+                <DialogContent className="bg-zinc-950 border-zinc-800 text-white sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Configurar Página</DialogTitle>
+                        <DialogDescription className="text-zinc-400">
+                            Defina o botão "Começar" e perguntas frequentes (Ice Breakers).
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedAccount && (
+                        <div className="space-y-6 py-4">
+                            <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg border border-zinc-800">
+                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold">
+                                    {selectedAccount.pageName.charAt(0)}
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm">{selectedAccount.pageName}</p>
+                                    <p className="text-xs text-zinc-500">ID: {selectedAccount.pageId}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label className="text-xs uppercase tracking-wider text-zinc-500">Botão Começar (Get Started)</Label>
+                                <div className="space-y-1">
+                                    <Input
+                                        value={getStartedPayload}
+                                        onChange={e => setGetStartedPayload(e.target.value)}
+                                        placeholder="Ex: INICIAR_FLUXO"
+                                        className="bg-zinc-900 border-zinc-800"
+                                    />
+                                    <p className="text-[10px] text-zinc-500">Payload que será enviado quando o usuário clicar em "Começar" pela primeira vez.</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs uppercase tracking-wider text-zinc-500">Perguntas Frequentes</Label>
+                                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs hover:bg-zinc-800" onClick={addIceBreaker}>
+                                        <Plus className="w-3 h-3 mr-1" /> Adicionar
+                                    </Button>
+                                </div>
+                                <div className="space-y-3">
+                                    {iceBreakers.map((ib, idx) => (
+                                        <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+                                            <div className="col-span-12 sm:col-span-6">
+                                                <Input
+                                                    value={ib.question}
+                                                    onChange={e => updateIceBreaker(idx, 'question', e.target.value)}
+                                                    placeholder="Pergunta (Ex: Preços?)"
+                                                    className="bg-zinc-900 border-zinc-800 h-8 text-xs"
+                                                />
+                                            </div>
+                                            <div className="col-span-10 sm:col-span-5">
+                                                <Input
+                                                    value={ib.payload}
+                                                    onChange={e => updateIceBreaker(idx, 'payload', e.target.value)}
+                                                    placeholder="Payload"
+                                                    className="bg-zinc-900 border-zinc-800 h-8 text-xs"
+                                                />
+                                            </div>
+                                            <div className="col-span-2 sm:col-span-1 flex justify-end">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeIceBreaker(idx)}>
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {iceBreakers.length === 0 && (
+                                        <div className="text-center py-4 bg-zinc-900/50 rounded border border-dashed border-zinc-800 text-xs text-zinc-500">
+                                            Nenhuma pergunta definida
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setConfigOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleSaveConfig} disabled={loading} className="bg-primary text-white">
+                            Salvar Alterações
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

@@ -152,6 +152,12 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
 
     // 2. Evaluate Rules
     for (const rule of rules) {
+        // Filter by Page ID: If rule has specific pages assigned, check if current page matches
+        const rulePageIds = (rule as any).pageIds as string[] | undefined;
+        if (rulePageIds && rulePageIds.length > 0 && !rulePageIds.includes(page.pageId)) {
+            continue;
+        }
+
         if (checkMatch(rule, text)) {
             // Check Cooldown
             if (rule.cooldownSeconds > 0) {

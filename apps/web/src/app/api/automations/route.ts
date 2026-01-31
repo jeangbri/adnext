@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const workspace = await getPrimaryWorkspace(user.id, user.email || '');
     const body = await req.json();
 
-    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions } = body;
+    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions, pageIds } = body;
 
     try {
         const rule = await prisma.automationRule.create({
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
                 priority: priority || 0,
                 cooldownSeconds: cooldownSeconds || 0,
                 isActive: isActive !== undefined ? isActive : true,
+                pageIds: pageIds || [],
                 actions: {
                     create: (actions || []).map((a: any, index: number) => ({
                         type: a.type,
