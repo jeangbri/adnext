@@ -37,6 +37,7 @@ model Workspace {
   responseTemplates ResponseTemplate[]
   contacts          Contact[]
   automationRules   AutomationRule[]
+  campaigns         BroadcastCampaign[]
 }
 
 model WorkspaceMember {
@@ -69,6 +70,7 @@ model MessengerPage {
   logs                 MessageLog[]
   contacts             Contact[]
   ruleExecutions       RuleExecution[]
+  campaigns            BroadcastCampaign[]
   getStartedPayload    String?
   iceBreakers          Json?
 }
@@ -149,6 +151,8 @@ model MessageLog {
 
   contact       Contact? @relation(fields: [contactId], references: [id])
   page          MessengerPage @relation(fields: [pageId], references: [pageId]) 
+  campaignId    String?
+  campaign      BroadcastCampaign? @relation(fields: [campaignId], references: [id]) 
   
   @@index([pageId, createdAt])
   @@index([contactId])
@@ -168,6 +172,59 @@ model RuleExecution {
   
   @@index([pageId, lastExecutedAt])
   @@index([ruleId])
+}
+
+model BroadcastCampaign {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  pageId          String
+  name            String
+  status          String   // DRAFT, SCHEDULED, SENDING, PAUSED, COMPLETED, FAILED
+  audienceType    String   // ALL, ACTIVE_24H, ACTIVE_7D, NEW_TODAY, CUSTOM
+  audienceFilter  Json?
+  sendMode        String   // IMMEDIATE, SCHEDULED
+  scheduledAt     DateTime?
+  policyMode      String   // 24H_ONLY, TAGGED
+  tag             String?  // ACCOUNT_UPDATE, POST_PURCHASE_UPDATE, CONFIRMED_EVENT_UPDATE, HUMAN_AGENT
+  messageType     String   // TEXT, BUTTON_TEMPLATE, AUDIO
+  payload         Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Counters (computed or cached)
+  totalRecipients Int      @default(0)
+  totalSent       Int      @default(0)
+  totalFailed     Int      @default(0)
+  totalSkipped    Int      @default(0)
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  page            MessengerPage @relation(fields: [pageId], references: [pageId])
+  recipients      BroadcastRecipient[]
+  logs            MessageLog[]
+  
+  @@index([workspaceId, pageId, status])
+  @@index([scheduledAt])
+}
+
+model BroadcastRecipient {
+  id             String   @id @default(uuid())
+  campaignId     String
+  workspaceId    String
+  pageId         String
+  userPsid       String
+  contactId      String?  // Optional link to Contact
+  status         String   // PENDING, SENT, FAILED, SKIPPED
+  skipReason     String?
+  metaMessageId  String?
+  error          String?
+  createdAt      DateTime @default(now())
+  sentAt         DateTime?
+
+  campaign       BroadcastCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@index([campaignId, status])
+  @@index([workspaceId, pageId, createdAt])
+  @@index([userPsid])
 }
 
 // ---------------------------------------------------------

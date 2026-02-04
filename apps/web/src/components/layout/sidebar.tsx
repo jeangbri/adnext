@@ -32,6 +32,7 @@ const sidebarItems = [
         title: "Automação",
         items: [
             { label: "Regras", href: "/workflows", icon: Zap },
+            { label: "Broadcast", href: "/broadcast", icon: Trophy },
             { label: "Logs", href: "/logs", icon: MessageSquare },
         ]
     },
