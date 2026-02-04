@@ -2,7 +2,7 @@
     "crons": [
         {
             "path": "/api/broadcast/runner",
-            "schedule": "* * * * *"
+            "schedule": "0 0 * * *"
         }
     ]
 }
