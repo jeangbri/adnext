@@ -213,7 +213,7 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
             }
 
             try {
-                await sendAction(page, contact.psid, action, incomingLogId);
+                await sendAction(page, contact, action, incomingLogId);
             } catch (error) {
                 console.error(`[Engine] Action Failed:`, error);
                 // Continue or break? Usually continue next actions unless critical
@@ -275,8 +275,9 @@ function matchSingle(type: string, input: string, keyword: string): boolean {
 // ACTIONS & SENDING
 // ------------------------------------------------------------------
 
-async function sendAction(page: any, psid: string, action: any, refLogId: string) {
+async function sendAction(page: any, contact: any, action: any, refLogId: string) {
     const payload = action.payload as any;
+    const psid = contact.psid;
     let messageBody: any = { recipient: { id: psid } };
     let actionTypeLabel = action.type;
 
@@ -358,10 +359,10 @@ async function sendAction(page: any, psid: string, action: any, refLogId: string
     }
 
     // Call Graph API
-    await sendGraphApi(page, messageBody, refLogId, actionTypeLabel);
+    await sendGraphApi(page, contact, messageBody, refLogId, actionTypeLabel);
 }
 
-async function sendGraphApi(page: any, body: any, refLogId: string, actionType: string) {
+async function sendGraphApi(page: any, contact: any, body: any, refLogId: string, actionType: string) {
     const token = decrypt(page.pageAccessToken);
     const url = `${FB_API_URL}/me/messages?access_token=${token}`;
 
@@ -378,7 +379,7 @@ async function sendGraphApi(page: any, body: any, refLogId: string, actionType: 
     await prisma.messageLog.create({
         data: {
             pageId: page.pageId,
-            contactId: undefined, // linked via ref? or can fetch contact
+            contactId: contact.id,
             // We can resolve contactId from body.recipient.id if strictly needed for FK
             direction: 'OUT',
             status: success ? 'SENT' : 'FAILED',
