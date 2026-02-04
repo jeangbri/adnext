@@ -27,6 +27,8 @@ export default function CreateBroadcastPage() {
     const [messageType, setMessageType] = useState("TEXT")
     const [text, setText] = useState("")
     const [audioUrl, setAudioUrl] = useState("")
+    const [buttons, setButtons] = useState<{ type: string, title: string, url: string }[]>([])
+
     const [sendMode, setSendMode] = useState("IMMEDIATE")
     const [scheduledAt, setScheduledAt] = useState("")
 
@@ -45,12 +47,16 @@ export default function CreateBroadcastPage() {
 
     const handleCreate = async () => {
         if (!name || !pageId) return toast.error("Preencha o nome e a página")
-        if (messageType === 'TEXT' && !text) return toast.error("Digite a mensagem")
+        if ((messageType === 'TEXT' || messageType === 'BUTTON_TEMPLATE') && !text) return toast.error("Digite a mensagem")
         if (messageType === 'AUDIO' && !audioUrl) return toast.error("Insira a URL do áudio")
+        if (messageType === 'BUTTON_TEMPLATE' && buttons.length === 0) return toast.error("Adicione pelo menos um botão")
 
         setLoading(true)
         try {
-            const payload = messageType === 'TEXT' ? { text } : { url: audioUrl }
+            let payload: any = {};
+            if (messageType === 'TEXT') payload = { text };
+            else if (messageType === 'AUDIO') payload = { url: audioUrl };
+            else if (messageType === 'BUTTON_TEMPLATE') payload = { text, buttons };
 
             const res = await fetch('/api/broadcasts', {
                 method: 'POST',
@@ -205,6 +211,13 @@ export default function CreateBroadcastPage() {
                                         Texto
                                     </Button>
                                     <Button
+                                        variant={messageType === 'BUTTON_TEMPLATE' ? 'default' : 'outline'}
+                                        onClick={() => setMessageType('BUTTON_TEMPLATE')}
+                                        className="flex-1"
+                                    >
+                                        Texto + Botões
+                                    </Button>
+                                    <Button
                                         variant={messageType === 'AUDIO' ? 'default' : 'outline'}
                                         onClick={() => setMessageType('AUDIO')}
                                         className="flex-1"
@@ -223,6 +236,68 @@ export default function CreateBroadcastPage() {
                                         value={text}
                                         onChange={e => setText(e.target.value)}
                                     />
+                                </div>
+                            )}
+
+                            {messageType === 'BUTTON_TEMPLATE' && (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label>Texto da Mensagem</Label>
+                                        <Textarea
+                                            placeholder="Clique no botão abaixo..."
+                                            className="bg-black/20 border-zinc-700"
+                                            value={text}
+                                            onChange={e => setText(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Botões (Máx 3)</Label>
+                                        {buttons.map((btn, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                                <Input
+                                                    placeholder="Título do Botão"
+                                                    value={btn.title}
+                                                    onChange={e => {
+                                                        const newBtns = [...buttons];
+                                                        newBtns[idx].title = e.target.value;
+                                                        setButtons(newBtns);
+                                                    }}
+                                                    className="bg-black/20 border-zinc-700 flex-1"
+                                                />
+                                                <Input
+                                                    placeholder="URL (https://...)"
+                                                    value={btn.url}
+                                                    onChange={e => {
+                                                        const newBtns = [...buttons];
+                                                        newBtns[idx].url = e.target.value;
+                                                        setButtons(newBtns);
+                                                    }}
+                                                    className="bg-black/20 border-zinc-700 flex-1"
+                                                />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => {
+                                                        const newBtns = buttons.filter((_, i) => i !== idx);
+                                                        setButtons(newBtns);
+                                                    }}
+                                                >
+                                                    x
+                                                </Button>
+                                            </div>
+                                        ))}
+                                        {buttons.length < 3 && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setButtons([...buttons, { type: 'web_url', title: '', url: '' }])}
+                                                className="w-full border-dashed"
+                                            >
+                                                + Adicionar Botão
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
