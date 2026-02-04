@@ -5,6 +5,7 @@ import { Zap, Activity, MessageSquare, ArrowUpRight } from "lucide-react";
 import { ServerConfigError } from "@/components/ServerConfigError";
 import { getDashboardStats } from "@/lib/dashboard-service";
 import { ExecutionsChart } from "./_components/executions-chart";
+import { LeadsFunnel } from "./_components/leads-funnel";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -69,16 +70,20 @@ export default async function DashboardPage() {
                     </Card>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                    <Card className="col-span-4 bg-zinc-900/50 border-zinc-800">
+                <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-8">
+                    <LeadsFunnel stats={stats.leadStats} />
+                    <Card className="md:col-span-4 lg:col-span-4 bg-zinc-900/50 border-zinc-800">
                         <CardHeader>
-                            <CardTitle className="text-white">Performance</CardTitle>
+                            <CardTitle className="text-white">Performance Mensagens</CardTitle>
                         </CardHeader>
                         <CardContent className="pl-2">
                             <ExecutionsChart data={stats.chartData} />
                         </CardContent>
                     </Card>
-                    <Card className="col-span-3 bg-zinc-900/50 border-zinc-800">
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-1">
+                    <Card className="bg-zinc-900/50 border-zinc-800">
                         <CardHeader>
                             <CardTitle className="text-white">Atividade Recente</CardTitle>
                         </CardHeader>
@@ -109,7 +114,7 @@ export default async function DashboardPage() {
                         </CardContent>
                     </Card>
                 </div>
-            </div>
+            </div >
         )
     } catch (error: any) {
         console.error("Dashboard Error:", error);

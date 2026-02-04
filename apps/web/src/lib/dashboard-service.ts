@@ -16,6 +16,14 @@ export type DashboardStats = {
         date: string;
         count: number;
     }[];
+    leadStats: {
+        total: number;
+        newToday: number;
+        activeNow: number;
+        active24h: number;
+        active7d: number;
+        active30d: number;
+    };
 };
 
 export async function getDashboardStats(workspaceId: string): Promise<DashboardStats> {
@@ -138,11 +146,45 @@ export async function getDashboardStats(workspaceId: string): Promise<DashboardS
         .map(([date, count]) => ({ date, count }))
         .reverse();
 
+    // 4. Lead Stats
+    const totalLeads = await prisma.contact.count({
+        where: { workspaceId }
+    });
+
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const newLeadsToday = await prisma.contact.count({
+        where: {
+            workspaceId,
+            firstSeenAt: { gte: startOfDay }
+        }
+    });
+
+    // Recency Buckets
+    const fifteenMinsAgo = new Date(now.getTime() - 15 * 60 * 1000);
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgoDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const activeNow = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: fifteenMinsAgo } } });
+    const active24h = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: twentyFourHoursAgo } } });
+    const active7d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: sevenDaysAgoDate } } });
+    const active30d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: thirtyDaysAgoDate } } });
+
     return {
         activeRules,
         totalExecutions,
         messagesSent,
         recentActivity: activity,
-        chartData
+        chartData,
+        leadStats: {
+            total: totalLeads,
+            newToday: newLeadsToday,
+            activeNow,
+            active24h,
+            active7d,
+            active30d
+        }
     };
 }
