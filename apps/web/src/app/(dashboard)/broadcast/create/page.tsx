@@ -119,9 +119,9 @@ export default function CreateBroadcastPage() {
                                         <SelectValue placeholder="Selecione a página" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {accounts.map(acc => (
-                                            <SelectItem key={acc.pageId} value={acc.pageId}>{acc.pageName}</SelectItem>
-                                        ))}
+                                        {accounts?.length > 0 ? accounts.map(acc => (
+                                            <SelectItem key={acc.uniqueId || acc.pageId} value={acc.pageId}>{acc.pageName}</SelectItem>
+                                        )) : <SelectItem value="loading" disabled>Carregando...</SelectItem>}
                                     </SelectContent>
                                 </Select>
                             </div>

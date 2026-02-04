@@ -41,8 +41,16 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        // Trigger audience generation immediately if IMMEDIATE (optional, or let runner handle)
-        // We will let the runner/internal job handle audience generation to avoid timeout on large lists.
+        if (sendMode === 'IMMEDIATE') {
+            // Attempt to trigger runner immediately
+            // We await it to ensure at least the first batch/audience gen starts
+            try {
+                const { processBroadcasts } = await import("@/lib/broadcast-runner");
+                await processBroadcasts();
+            } catch (err) {
+                console.error("Trigger runner failed", err);
+            }
+        }
 
         return NextResponse.json(campaign);
     } catch (e: any) {
