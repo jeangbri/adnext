@@ -26,63 +26,58 @@ export type DashboardStats = {
     };
 };
 
-export async function getDashboardStats(workspaceId: string): Promise<DashboardStats> {
+export async function getDashboardStats(workspaceId: string, pageId?: string): Promise<DashboardStats> {
+    // Helper filter for Page ID
+    const pageFilter = pageId ? { pageId } : {};
+    const contactPageFilter = pageId ? { logs: { some: { pageId } } } : {};
+    const rulePageFilter = pageId
+        ? { OR: [{ pageIds: { has: pageId } }, { pageIds: { equals: [] } }] }
+        : {};
+
     // 1. Counts
     const activeRules = await prisma.automationRule.count({
         where: {
             workspaceId,
-            isActive: true
+            isActive: true,
+            ...rulePageFilter
         }
     });
 
     const totalExecutions = await prisma.ruleExecution.count({
         where: {
-            rule: {
-                workspaceId
-            }
+            rule: { workspaceId },
+            contact: contactPageFilter
         }
     });
 
     const messagesSent = await prisma.messageLog.count({
         where: {
-            page: {
-                workspaceId
-            },
+            page: { workspaceId },
             direction: 'OUT',
-            status: 'SENT'
+            status: 'SENT',
+            ...pageFilter
         }
     });
 
-    // 2. Recent Activity (Mix of MessageLogs and RuleExecutions)
+    // 2. Recent Activity
     const recentLogs = await prisma.messageLog.findMany({
         where: {
-            page: {
-                workspaceId
-            }
+            page: { workspaceId },
+            ...pageFilter
         },
-        orderBy: {
-            createdAt: 'desc'
-        },
+        orderBy: { createdAt: 'desc' },
         take: 5,
-        include: {
-            contact: true
-        }
+        include: { contact: true }
     });
 
     const recentExecutions = await prisma.ruleExecution.findMany({
         where: {
-            rule: {
-                workspaceId
-            }
+            rule: { workspaceId },
+            contact: contactPageFilter
         },
-        orderBy: {
-            lastExecutedAt: 'desc'
-        },
+        orderBy: { lastExecutedAt: 'desc' },
         take: 5,
-        include: {
-            rule: true,
-            contact: true
-        }
+        include: { rule: true, contact: true }
     });
 
     // Merge and sort
@@ -105,50 +100,43 @@ export async function getDashboardStats(workspaceId: string): Promise<DashboardS
         }))
     ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 5);
 
-    // 3. Chart Data (Last 7 days executions)
+    // 3. Chart Data
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const executionsLast7Days = await prisma.ruleExecution.findMany({
         where: {
-            rule: {
-                workspaceId
-            },
-            lastExecutedAt: {
-                gte: sevenDaysAgo
-            }
+            rule: { workspaceId },
+            contact: contactPageFilter,
+            lastExecutedAt: { gte: sevenDaysAgo }
         },
-        select: {
-            lastExecutedAt: true
-        }
+        select: { lastExecutedAt: true }
     });
 
     // Group by day
     const chartMap = new Map<string, number>();
-
-    // Initialize last 7 days with 0
     for (let i = 0; i < 7; i++) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); // DD/MM
+        const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         chartMap.set(key, 0);
     }
 
     executionsLast7Days.forEach(exec => {
         const key = exec.lastExecutedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        if (chartMap.has(key)) {
-            chartMap.set(key, chartMap.get(key)! + 1);
-        }
+        if (chartMap.has(key)) chartMap.set(key, chartMap.get(key)! + 1);
     });
 
-    // Sort by date (oldest to newest for chart)
     const chartData = Array.from(chartMap.entries())
         .map(([date, count]) => ({ date, count }))
         .reverse();
 
     // 4. Lead Stats
     const totalLeads = await prisma.contact.count({
-        where: { workspaceId }
+        where: {
+            workspaceId,
+            ...contactPageFilter
+        }
     });
 
     const now = new Date();
@@ -157,7 +145,8 @@ export async function getDashboardStats(workspaceId: string): Promise<DashboardS
     const newLeadsToday = await prisma.contact.count({
         where: {
             workspaceId,
-            firstSeenAt: { gte: startOfDay }
+            firstSeenAt: { gte: startOfDay },
+            ...contactPageFilter
         }
     });
 
@@ -167,10 +156,10 @@ export async function getDashboardStats(workspaceId: string): Promise<DashboardS
     const sevenDaysAgoDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const activeNow = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: fifteenMinsAgo } } });
-    const active24h = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: twentyFourHoursAgo } } });
-    const active7d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: sevenDaysAgoDate } } });
-    const active30d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: thirtyDaysAgoDate } } });
+    const activeNow = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: fifteenMinsAgo }, ...contactPageFilter } });
+    const active24h = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: twentyFourHoursAgo }, ...contactPageFilter } });
+    const active7d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: sevenDaysAgoDate }, ...contactPageFilter } });
+    const active30d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: thirtyDaysAgoDate }, ...contactPageFilter } });
 
     return {
         activeRules,

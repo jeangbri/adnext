@@ -9,10 +9,12 @@ import { LeadsFunnel } from "./_components/leads-funnel";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+import { DashboardFilter } from "./_components/dashboard-filter";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: { pageId?: string } }) {
     try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -20,7 +22,8 @@ export default async function DashboardPage() {
         if (!user) return <div>Não autorizado</div>;
 
         const workspace = await getPrimaryWorkspace(user.id, user.email || '');
-        const stats = await getDashboardStats(workspace.id);
+        const pageId = searchParams.pageId;
+        const stats = await getDashboardStats(workspace.id, pageId);
 
         return (
             <div className="space-y-8">
@@ -29,6 +32,7 @@ export default async function DashboardPage() {
                         <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
                         <p className="text-zinc-400">Visão geral da sua operação no Messenger</p>
                     </div>
+                    <DashboardFilter />
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
