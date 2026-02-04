@@ -67,6 +67,8 @@ model MessengerPage {
   
   workspace            Workspace @relation(fields: [workspaceId], references: [id])
   logs                 MessageLog[]
+  contacts             Contact[]
+  ruleExecutions       RuleExecution[]
   getStartedPayload    String?
   iceBreakers          Json?
 }
@@ -84,10 +86,14 @@ model Contact {
   tags            Json?    // ["tag1", "tag2"]
   
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  pageId          String?
+  page            MessengerPage? @relation(fields: [pageId], references: [pageId]) 
   logs            MessageLog[]
   ruleExecutions  RuleExecution[]
 
-  @@unique([workspaceId, psid])
+  @@unique([pageId, psid])
+  @@index([pageId])
+  @@index([workspaceId])
 }
 
 model AutomationRule {
@@ -110,6 +116,8 @@ model AutomationRule {
   actions         AutomationAction[]
   executions      RuleExecution[]
   pageIds         String[] @default([])
+  
+  @@index([workspaceId, isActive])
 }
 
 model AutomationAction {
@@ -121,6 +129,8 @@ model AutomationAction {
   delayMs   Int      @default(0)
   
   rule      AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  @@index([ruleId, order])
 }
 
 model MessageLog {
@@ -139,17 +149,25 @@ model MessageLog {
 
   contact       Contact? @relation(fields: [contactId], references: [id])
   page          MessengerPage @relation(fields: [pageId], references: [pageId]) 
+  
+  @@index([pageId, createdAt])
+  @@index([contactId])
 }
 
 model RuleExecution {
   id             String   @id @default(uuid())
   ruleId         String
   contactId      String
+  pageId         String?   // For faster filtering by page
   lastExecutedAt DateTime @default(now())
   timesExecuted  Int      @default(1)
 
   rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  page           MessengerPage? @relation(fields: [pageId], references: [pageId])
+  
+  @@index([pageId, lastExecutedAt])
+  @@index([ruleId])
 }
 
 // ---------------------------------------------------------

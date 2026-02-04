@@ -201,7 +201,8 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
             data: {
                 ruleId: matchedRule.id,
                 contactId: contact.id,
-                timesExecuted: 1 // Ideally increment if exists, but create is fine for log history
+                pageId: page.pageId,
+                timesExecuted: 1
             }
         });
 
@@ -402,7 +403,7 @@ async function sendGraphApi(page: any, contact: any, body: any, refLogId: string
 async function upsertContact(page: any, psid: string) {
     // Check if exists
     let contact = await prisma.contact.findUnique({
-        where: { workspaceId_psid: { workspaceId: page.workspaceId, psid } }
+        where: { pageId_psid: { pageId: page.pageId, psid } }
     });
 
     // If exists, just update last seen
@@ -430,6 +431,7 @@ async function upsertContact(page: any, psid: string) {
     return prisma.contact.create({
         data: {
             workspaceId: page.workspaceId,
+            pageId: page.pageId,
             psid: psid,
             firstName: profile.first_name || "Unknown",
             lastName: profile.last_name || "",

@@ -29,7 +29,10 @@ export type DashboardStats = {
 export async function getDashboardStats(workspaceId: string, pageId?: string): Promise<DashboardStats> {
     // Helper filter for Page ID
     const pageFilter = pageId ? { pageId } : {};
-    const contactPageFilter = pageId ? { logs: { some: { pageId } } } : {};
+
+    // NEW: Direct column filters (much faster)
+    const directPageFilter = pageId ? { pageId } : {};
+
     const rulePageFilter = pageId
         ? { OR: [{ pageIds: { has: pageId } }, { pageIds: { equals: [] } }] }
         : {};
@@ -46,7 +49,7 @@ export async function getDashboardStats(workspaceId: string, pageId?: string): P
     const totalExecutions = await prisma.ruleExecution.count({
         where: {
             rule: { workspaceId },
-            contact: contactPageFilter
+            ...directPageFilter
         }
     });
 
@@ -73,7 +76,7 @@ export async function getDashboardStats(workspaceId: string, pageId?: string): P
     const recentExecutions = await prisma.ruleExecution.findMany({
         where: {
             rule: { workspaceId },
-            contact: contactPageFilter
+            ...directPageFilter
         },
         orderBy: { lastExecutedAt: 'desc' },
         take: 5,
@@ -107,7 +110,7 @@ export async function getDashboardStats(workspaceId: string, pageId?: string): P
     const executionsLast7Days = await prisma.ruleExecution.findMany({
         where: {
             rule: { workspaceId },
-            contact: contactPageFilter,
+            ...directPageFilter,
             lastExecutedAt: { gte: sevenDaysAgo }
         },
         select: { lastExecutedAt: true }
@@ -135,7 +138,7 @@ export async function getDashboardStats(workspaceId: string, pageId?: string): P
     const totalLeads = await prisma.contact.count({
         where: {
             workspaceId,
-            ...contactPageFilter
+            ...directPageFilter
         }
     });
 
@@ -146,7 +149,7 @@ export async function getDashboardStats(workspaceId: string, pageId?: string): P
         where: {
             workspaceId,
             firstSeenAt: { gte: startOfDay },
-            ...contactPageFilter
+            ...directPageFilter
         }
     });
 
@@ -156,10 +159,10 @@ export async function getDashboardStats(workspaceId: string, pageId?: string): P
     const sevenDaysAgoDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const activeNow = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: fifteenMinsAgo }, ...contactPageFilter } });
-    const active24h = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: twentyFourHoursAgo }, ...contactPageFilter } });
-    const active7d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: sevenDaysAgoDate }, ...contactPageFilter } });
-    const active30d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: thirtyDaysAgoDate }, ...contactPageFilter } });
+    const activeNow = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: fifteenMinsAgo }, ...directPageFilter } });
+    const active24h = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: twentyFourHoursAgo }, ...directPageFilter } });
+    const active7d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: sevenDaysAgoDate }, ...directPageFilter } });
+    const active30d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: thirtyDaysAgoDate }, ...directPageFilter } });
 
     return {
         activeRules,
