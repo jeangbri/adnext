@@ -15,6 +15,23 @@ model User {
   updatedAt       DateTime          @updatedAt
   ownedWorkspaces Workspace[]
   workspaces      WorkspaceMember[]
+  projects        Project[]
+  pages           MessengerPage[]
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  slug      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  pages     MessengerPage[]
+
+  @@unique([userId, slug])
+  @@index([userId])
 }
 
 model Workspace {
@@ -67,10 +84,21 @@ model MessengerPage {
   updatedAt            DateTime @updatedAt
   
   workspace            Workspace @relation(fields: [workspaceId], references: [id])
+  
+  projectId            String?
+  project              Project?  @relation(fields: [projectId], references: [id])
+  
+  userId               String?
+  user                 User?     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([projectId])
+  @@unique([userId, pageId])
   logs                 MessageLog[]
   contacts             Contact[]
   ruleExecutions       RuleExecution[]
   campaigns            BroadcastCampaign[]
+  automationRules      AutomationRule[]
   getStartedPayload    String?
   iceBreakers          Json?
 }
@@ -117,7 +145,10 @@ model AutomationRule {
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
   actions         AutomationAction[]
   executions      RuleExecution[]
-  pageIds         String[] @default([])
+  pageIds         String[] @default([]) // Deprecated in favor of pageId
+  pageId          String?
+  page            MessengerPage? @relation(fields: [pageId], references: [pageId])
+
   
   @@index([workspaceId, isActive])
 }

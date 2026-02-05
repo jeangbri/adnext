@@ -11,10 +11,13 @@ import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getProjects, updatePageProject } from "@/app/actions/projects"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function IntegrationsPage() {
     const [loading, setLoading] = useState(true)
     const [accounts, setAccounts] = useState<any[]>([])
+    const [projects, setProjects] = useState<any[]>([])
 
     // Config Dialog State
     const [configOpen, setConfigOpen] = useState(false)
@@ -27,7 +30,23 @@ export default function IntegrationsPage() {
 
     useEffect(() => {
         fetchStatus()
+        loadProjects()
     }, [])
+
+    const loadProjects = async () => {
+        const data = await getProjects()
+        setProjects(data)
+    }
+
+    const handleProjectChange = async (pageId: string, projectId: string) => {
+        try {
+            await updatePageProject(pageId, projectId)
+            toast.success("Projeto atualizado!")
+            fetchStatus()
+        } catch (e) {
+            toast.error("Erro ao atualizar projeto")
+        }
+    }
 
     const fetchStatus = async () => {
         try {
@@ -181,6 +200,25 @@ export default function IntegrationsPage() {
                                             <p className="text-xs text-zinc-500 font-mono">Page ID: {account.pageId}</p>
                                         </div>
                                     </div>
+
+                                    <div className="flex items-center gap-2 min-w-[200px]">
+                                        <Select
+                                            defaultValue={account.project?.id || "unassigned"}
+                                            onValueChange={(val) => handleProjectChange(account.pageId, val)}
+                                            disabled={loading}
+                                        >
+                                            <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-700 text-xs h-8">
+                                                <SelectValue placeholder="Selecione Projeto" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                                                <SelectItem value="unassigned" disabled>Sem Projeto</SelectItem>
+                                                {projects.map(p => (
+                                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
                                     <div className="flex gap-2">
                                         <Button variant="outline" size="sm" onClick={() => handleOpenConfig(account)} disabled={loading} className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
                                             <Settings className="w-4 h-4 mr-2" />

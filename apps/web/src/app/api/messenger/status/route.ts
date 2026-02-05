@@ -19,8 +19,16 @@ export async function GET(req: NextRequest) {
         // Fetch connected page
         const accounts = await prisma.messengerPage.findMany({
             where: {
-                workspaceId: workspace.id,
+                OR: [
+                    { userId: user.id },
+                    { workspaceId: workspace.id }
+                ],
                 isActive: true
+            },
+            include: {
+                project: {
+                    select: { id: true, name: true }
+                }
             },
             orderBy: {
                 updatedAt: 'desc'

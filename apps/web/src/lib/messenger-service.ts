@@ -158,6 +158,11 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
             continue;
         }
 
+        // New strict pageId check
+        if ((rule as any).pageId && (rule as any).pageId !== page.pageId) {
+            continue;
+        }
+
         if (checkMatch(rule, text)) {
             // Check Cooldown
             if (rule.cooldownSeconds > 0) {
