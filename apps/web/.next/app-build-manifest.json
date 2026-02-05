@@ -11,6 +11,16 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
+    "/(auth)/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(auth)/layout.js"
+    ],
+    "/(auth)/entrar/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(auth)/entrar/page.js"
+    ],
     "/(dashboard)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -31,10 +41,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(dashboard)/workflows/page.js"
     ],
-    "/(dashboard)/workflows/create/page": [
+    "/(dashboard)/settings/integracoes/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(dashboard)/workflows/create/page.js"
+      "static/chunks/app/(dashboard)/settings/integracoes/page.js"
     ]
   }
 }
