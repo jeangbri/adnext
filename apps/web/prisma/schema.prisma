@@ -101,6 +101,11 @@ model MessengerPage {
   automationRules      AutomationRule[]
   getStartedPayload    String?
   iceBreakers          Json?
+  
+  // New Architecture Relations
+  conversations        Conversation[]
+  messageEvents        MessageEvent[]
+  commentEvents        CommentEvent[]
 }
 
 model Contact {
@@ -149,8 +154,12 @@ model AutomationRule {
   pageId          String?
   page            MessengerPage? @relation(fields: [pageId], references: [pageId])
 
+  // New Trigger Fields
+  triggerType     String   @default("MESSAGE_ANY") // MESSAGE_ANY, MESSAGE_OUTSIDE_24H, COMMENT_ON_POST
+  triggerConfig   Json?    // Stores specific config like postIds, thresholdHours, etc.
   
   @@index([workspaceId, isActive])
+  @@index([pageId, triggerType])
 }
 
 model AutomationAction {
@@ -256,6 +265,59 @@ model BroadcastRecipient {
   @@index([campaignId, status])
   @@index([workspaceId, pageId, createdAt])
   @@index([userPsid])
+}
+
+// ---------------------------------------------------------
+// NEW ARCHITECTURE MODELS (Triggers & events)
+// ---------------------------------------------------------
+
+model Conversation {
+  id                String   @id @default(uuid())
+  pageId            String
+  psid              String
+  lastUserMessageAt DateTime?
+  lastPageMessageAt DateTime?
+  lastInteractionAt DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  page              MessengerPage @relation(fields: [pageId], references: [pageId])
+  
+  @@unique([pageId, psid])
+  @@index([pageId, lastInteractionAt])
+}
+
+model MessageEvent {
+  id          String   @id @default(uuid())
+  pageId      String
+  psid        String
+  direction   String   // IN, OUT
+  source      String   // webhook_message, webhook_postback, broadcast, comment_dm, manual_test, automation
+  messageType String   // text, attachment, postback, reaction, read, referral, unknown
+  payloadJson Json?
+  ruleId      String?
+  workflowId  String?
+  createdAt   DateTime @default(now())
+
+  page        MessengerPage @relation(fields: [pageId], references: [pageId])
+
+  @@index([pageId, direction, createdAt])
+  @@index([pageId, source])
+}
+
+model CommentEvent {
+  id          String   @id @default(uuid())
+  pageId      String
+  postId      String
+  commentId   String   @unique
+  fromUserId  String?
+  message     String?
+  payloadJson Json?
+  createdAt   DateTime @default(now())
+
+  page        MessengerPage @relation(fields: [pageId], references: [pageId])
+
+  @@index([pageId, postId])
 }
 
 // ---------------------------------------------------------

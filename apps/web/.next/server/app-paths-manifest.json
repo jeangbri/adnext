@@ -1,8 +1,8 @@
 {
+  "/page": "app/page.js",
   "/api/messenger/status/route": "app/api/messenger/status/route.js",
   "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
-  "/(auth)/entrar/page": "app/(auth)/entrar/page.js",
-  "/(dashboard)/settings/integracoes/page": "app/(dashboard)/settings/integracoes/page.js",
   "/(dashboard)/projects/page": "app/(dashboard)/projects/page.js",
-  "/(dashboard)/workflows/page": "app/(dashboard)/workflows/page.js"
+  "/(dashboard)/workflows/page": "app/(dashboard)/workflows/page.js",
+  "/(dashboard)/workflows/create/page": "app/(dashboard)/workflows/create/page.js"
 }

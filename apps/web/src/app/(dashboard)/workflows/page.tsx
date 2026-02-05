@@ -106,15 +106,37 @@ export default async function AutomationsPage() {
                                         {rule.name}
                                     </td>
                                     <td className="px-6 py-4 max-w-xs truncate">
-                                        <div className="flex flex-wrap gap-1">
-                                            {rule.keywords.slice(0, 3).map((k, i) => (
-                                                <span key={i} className="px-2 py-0.5 rounded-full bg-zinc-800 text-xs border border-white/5">
-                                                    {k}
-                                                </span>
-                                            ))}
-                                            {rule.keywords.length > 3 && (
-                                                <span className="text-xs text-zinc-500">+{rule.keywords.length - 3}</span>
-                                            )}
+                                        <div className="flex flex-col gap-2">
+                                            {/* Trigger Type Badge */
+                                                (rule as any).triggerType && (rule as any).triggerType !== 'MESSAGE_ANY' && (
+                                                    <span className={`px-2 py-0.5 w-fit rounded text-[10px] font-bold uppercase
+                                                    ${(rule as any).triggerType === 'COMMENT_ON_POST' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
+                                                            (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'bg-orange-500/20 text-orange-500 border border-orange-500/30' :
+                                                                'bg-zinc-800 text-zinc-400'}
+                                                `}>
+                                                        {(rule as any).triggerType === 'COMMENT_ON_POST' ? 'Comentário' :
+                                                            (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'Reengajamento (>24h)' :
+                                                                (rule as any).triggerType}
+                                                    </span>
+                                                )}
+
+                                            {/* Keywords */}
+                                            <div className="flex flex-wrap gap-1">
+                                                {rule.keywords.length > 0 ? rule.keywords.slice(0, 3).map((k, i) => (
+                                                    <span key={i} className="px-2 py-0.5 rounded-full bg-zinc-800 text-xs border border-white/5">
+                                                        {k}
+                                                    </span>
+                                                )) : (
+                                                    (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ?
+                                                        <span className="text-xs text-zinc-500 italic">Qualquer msg</span> :
+                                                        (rule as any).triggerType === 'COMMENT_ON_POST' && (rule as any).triggerConfig?.keywords?.length === 0 ?
+                                                            <span className="text-xs text-zinc-500 italic">Qualquer comentário</span> :
+                                                            <span className="text-xs text-zinc-600">-</span>
+                                                )}
+                                                {rule.keywords.length > 3 && (
+                                                    <span className="text-xs text-zinc-500">+{rule.keywords.length - 3}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">

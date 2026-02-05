@@ -51,6 +51,10 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
     const [keywordInput, setKeywordInput] = useState('')
     const [keywords, setKeywords] = useState<string[]>(rule?.keywords || [])
 
+    // Trigger State
+    const [triggerType, setTriggerType] = useState<string>(rule?.triggerType || 'MESSAGE_ANY')
+    const [triggerConfig, setTriggerConfig] = useState<any>(rule?.triggerConfig || {})
+
     // Page Selection State
     const [accounts, setAccounts] = useState<any[]>([])
     const [selectedPageIds, setSelectedPageIds] = useState<string[]>(rule?.pageIds || [])
@@ -210,6 +214,8 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             matchOperator,
             keywords,
             pageIds: selectedPageIds,
+            triggerType,
+            triggerConfig,
             actions
         }
 
@@ -275,12 +281,41 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                             <CardDescription>Defina quando esta automação será disparada.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-5">
+
+                            {/* NEW: Trigger Type Selector */}
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase tracking-wider text-zinc-500">Tipo de Evento</Label>
+                                <Select
+                                    value={triggerType}
+                                    onValueChange={(v) => {
+                                        setTriggerType(v);
+                                        // Reset/Set defaults based on type
+                                        if (v === 'MESSAGE_OUTSIDE_24H') {
+                                            setTriggerConfig(prev => ({ ...prev, thresholdHours: 24, onlyIfReturning: true }));
+                                        }
+                                        if (v === 'COMMENT_ON_POST') {
+                                            setTriggerConfig(prev => ({ ...prev, ignoreOwnComments: true }));
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger className="bg-black/40 border-zinc-800">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="MESSAGE_ANY">Mensagem Recebida (DM)</SelectItem>
+                                        <SelectItem value="MESSAGE_OUTSIDE_24H">Reengajamento (Fora 24h)</SelectItem>
+                                        <SelectItem value="COMMENT_ON_POST">Comentário em Post</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Page Selection */}
                             <div className="space-y-4 pb-4 border-b border-white/5">
                                 <Label className="text-xs uppercase tracking-wider text-zinc-500">Páginas (Onde Executar)</Label>
                                 {loading && accounts.length === 0 ? (
                                     <div className="text-xs text-zinc-500 flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Carregando páginas...</div>
                                 ) : accounts.length > 0 ? (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[150px] overflow-y-auto pr-1">
                                         {accounts.map(account => (
                                             <div
                                                 key={account.id}
@@ -323,7 +358,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-wider text-zinc-500">Nome Identificador</Label>
+                                <Label className="text-xs uppercase tracking-wider text-zinc-500">Nome da Regra</Label>
                                 <Input
                                     value={name}
                                     onChange={e => setName(e.target.value)}
@@ -332,8 +367,80 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-wider text-zinc-500">Palavras-chave</Label>
+                            {/* TRIGGER CONFIG: COMMENT_ON_POST */}
+                            {triggerType === 'COMMENT_ON_POST' && (
+                                <div className="space-y-4 pt-2 border-t border-white/5">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-zinc-400">Post IDs Específicos (Opcional)</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="Digite ID do post e enter..."
+                                                className="bg-black/40 border-zinc-800"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const val = e.currentTarget.value.trim();
+                                                        if (val) {
+                                                            const current = triggerConfig.postIds || [];
+                                                            setTriggerConfig({ ...triggerConfig, postIds: [...current, val] });
+                                                            e.currentTarget.value = '';
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {(triggerConfig.postIds || []).map((pid: string, i: number) => (
+                                                <Badge key={i} variant="outline" className="text-[10px] border-zinc-700">
+                                                    {pid} <Trash2 className="w-3 h-3 ml-1 cursor-pointer" onClick={() => {
+                                                        const newIds = triggerConfig.postIds.filter((_: any, idx: number) => idx !== i);
+                                                        setTriggerConfig({ ...triggerConfig, postIds: newIds });
+                                                    }} />
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                        <p className="text-[10px] text-zinc-500">Deixe vazio para monitorar TODOS os posts.</p>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            id="ignore-own"
+                                            checked={triggerConfig.ignoreOwnComments !== false}
+                                            onCheckedChange={(c) => setTriggerConfig({ ...triggerConfig, ignoreOwnComments: c })}
+                                        />
+                                        <Label htmlFor="ignore-own" className="text-xs text-zinc-400">Ignorar comentários da própria página</Label>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TRIGGER CONFIG: MESSAGE_OUTSIDE_24H */}
+                            {triggerType === 'MESSAGE_OUTSIDE_24H' && (
+                                <div className="space-y-4 pt-2 border-t border-white/5">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-zinc-400">Limite de Tempo (Horas)</Label>
+                                        <Input
+                                            type="number"
+                                            value={triggerConfig.thresholdHours || 24}
+                                            onChange={e => setTriggerConfig({ ...triggerConfig, thresholdHours: Number(e.target.value) })}
+                                            className="bg-black/40 border-zinc-800"
+                                        />
+                                        <p className="text-[10px] text-zinc-500">Tempo sem interação do usuário para considerar "Fora da Janela".</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            id="only-returning"
+                                            checked={triggerConfig.onlyIfReturning !== false}
+                                            onCheckedChange={(c) => setTriggerConfig({ ...triggerConfig, onlyIfReturning: c })}
+                                        />
+                                        <Label htmlFor="only-returning" className="text-xs text-zinc-400">Apenas usuários recorrentes (já interagiram antes)</Label>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* KEYWORDS: Relevant for ALL types actually, maybe optional for 24h */}
+                            <div className="space-y-2 pt-2 border-t border-white/5">
+                                <Label className="text-xs uppercase tracking-wider text-zinc-500">
+                                    {triggerType === 'COMMENT_ON_POST' ? 'Palavras-chave no Comentário' : 'Palavras-chave na Mensagem'}
+                                </Label>
                                 <div className="space-y-3">
                                     <div className="flex gap-2">
                                         <Select value={matchType} onValueChange={setMatchType}>
@@ -355,7 +462,9 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                         />
                                     </div>
                                     <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-black/20 rounded-md border border-zinc-800/50">
-                                        {keywords.length === 0 && <span className="text-xs text-zinc-600 block w-full text-center py-2">Nenhuma palavra-chave</span>}
+                                        {keywords.length === 0 && <span className="text-xs text-zinc-600 block w-full text-center py-2">
+                                            {triggerType === 'MESSAGE_OUTSIDE_24H' ? 'Qualquer mensagem (se vazio)' : 'Nenhuma palavra-chave'}
+                                        </span>}
                                         {keywords.map((k, i) => (
                                             <Badge key={i} variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20 gap-1 pl-2 pr-1 py-0.5">
                                                 {k}

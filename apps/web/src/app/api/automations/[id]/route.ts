@@ -25,7 +25,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions, pageIds } = body;
+    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions, pageIds, triggerType, triggerConfig } = body;
 
     try {
         // Transaction to update rule and replace actions
@@ -35,7 +35,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                 where: { id: params.id },
                 data: {
                     name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive,
-                    pageIds: pageIds || []
+                    pageIds: pageIds || [],
+                    triggerType,
+                    triggerConfig
                 }
             });
 
