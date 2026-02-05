@@ -367,14 +367,8 @@ async function matchAndExecuteComment(page: any, commentEvent: any) {
         }
 
         // 2. Keyword Check
-        // If keywords defined, must match. If empty, match ANY comment?
-        // User said: "keywords: string[] (opcional)".
-        if (config?.keywords && Array.isArray(config.keywords) && config.keywords.length > 0) {
-            // Reuse match logic, but maybe specific mode
-            const mode = config.keywordMode || 'ANY'; // ANY, CONTAINS, REGEX
-            const match = checkMatchCustom(text, config.keywords, mode);
-            if (!match) continue;
-        }
+        // Use standard Rule Keywords via checkMatch
+        if (!checkMatch(rule, text)) continue;
 
         matchedRule = rule;
         break;
@@ -547,7 +541,12 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
     }
 
     let messageBody: any = { recipient };
-    let actionTypeLabel = action.type;
+
+    // SAFEGUARD: Comment Replies (Private Replies) usually only support TEXT.
+    // If we try to send a template, it might fail.
+    // specificially, "message" field restrictions apply.
+    const isCommentReply = !!replyToCommentId;
+    const actionTypeLabel = action.type;
 
     switch (action.type) {
         case 'TEXT':
@@ -555,50 +554,59 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
             break;
 
         case 'BUTTON_TEMPLATE':
-            if (replyToCommentId) {
-                // Private Reply limitations: specific templates might not work fully or render differently?
-                // Text/Buttons usually fine. 
-            }
-            messageBody.message = {
-                attachment: {
-                    type: "template",
-                    payload: {
-                        template_type: "button",
-                        text: payload.text,
-                        buttons: payload.buttons?.map((b: any) => ({
-                            type: b.type || "web_url",
-                            url: b.type === 'web_url' ? b.url : undefined,
-                            title: b.title,
-                            payload: b.type === 'postback' ? b.payload : undefined
-                        }))
+            if (isCommentReply) {
+                // Convert to text with links
+                const buttons = payload.buttons?.map((b: any) => `[${b.title}] ${b.type === 'web_url' ? b.url : ''}`).join('\n');
+                messageBody.message = { text: `${payload.text}\n\n${buttons}` };
+            } else {
+                messageBody.message = {
+                    attachment: {
+                        type: "template",
+                        payload: {
+                            template_type: "button",
+                            text: payload.text,
+                            buttons: payload.buttons?.map((b: any) => ({
+                                type: b.type || "web_url",
+                                url: b.type === 'web_url' ? b.url : undefined,
+                                title: b.title,
+                                payload: b.type === 'postback' ? b.payload : undefined
+                            }))
+                        }
                     }
-                }
-            };
+                };
+            }
             break;
 
         case 'GENERIC_TEMPLATE':
-            messageBody.message = {
-                attachment: {
-                    type: "template",
-                    payload: {
-                        template_type: "generic",
-                        elements: [
-                            {
-                                title: payload.title,
-                                subtitle: payload.subtitle,
-                                image_url: payload.imageUrl,
-                                buttons: payload.buttons?.map((b: any) => ({
-                                    type: b.type || "web_url",
-                                    url: b.type === 'web_url' ? b.url : undefined,
-                                    title: b.title,
-                                    payload: b.type === 'postback' ? b.payload : undefined
-                                }))
-                            }
-                        ]
+            if (isCommentReply) {
+                // Convert to text
+                const buttons = payload.buttons?.map((b: any) => `[${b.title}] ${b.type === 'web_url' ? b.url : ''}`).join('\n');
+                messageBody.message = { text: `${payload.title}\n${payload.subtitle || ''}\n${payload.imageUrl || ''}\n\n${buttons}` };
+            } else {
+                messageBody.message = {
+                    attachment: {
+                        type: "template",
+                        payload: {
+                            template_type: "generic",
+                            elements: [
+                                {
+                                    title: payload.title,
+                                    subtitle: payload.subtitle,
+                                    image_url: payload.imageUrl,
+                                    buttons: payload.buttons?.map((b: any) => ({
+                                        type: b.type || "web_url",
+                                        url: b.type === 'web_url' ? b.url : undefined,
+                                        title: b.title,
+                                        payload: b.type === 'postback' ? b.payload : undefined
+                                    }))
+                                }
+                            ]
+                        }
                     }
-                }
-            };
+                };
+            }
             break;
+
 
         case 'IMAGE':
         case 'AUDIO':
