@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
     Home,
+    Folder,
     Zap,
     MessageSquare,
     Inbox,
@@ -26,6 +27,7 @@ const sidebarItems = [
         title: "Principal",
         items: [
             { label: "Dashboard", href: "/dashboard", icon: Home },
+            { label: "Projetos", href: "/projects", icon: Folder },
         ]
     },
     {
