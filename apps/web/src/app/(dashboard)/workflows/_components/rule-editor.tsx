@@ -18,6 +18,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 
 interface RuleEditorProps {
     rule?: any
@@ -58,6 +59,31 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
     // Page Selection State
     const [accounts, setAccounts] = useState<any[]>([])
     const [selectedPageIds, setSelectedPageIds] = useState<string[]>(rule?.pageIds || [])
+
+    // Post Picker State
+    const [posts, setPosts] = useState<any[]>([])
+    const [postsLoading, setPostsLoading] = useState(false)
+    const [postPickerOpen, setPostPickerOpen] = useState(false)
+
+    // Load Posts Logic
+    const fetchPosts = async () => {
+        if (selectedPageIds.length !== 1) {
+            toast.error("Selecione exatamente UMA página para buscar posts.")
+            return
+        }
+        setPostsLoading(true)
+        try {
+            const res = await fetch(`/api/messenger/pages/${selectedPageIds[0]}/posts`)
+            const data = await res.json()
+            if (data.error) throw new Error(data.error)
+            setPosts(data.posts || [])
+            setPostPickerOpen(true)
+        } catch (e: any) {
+            toast.error(e.message || "Erro ao buscar posts")
+        } finally {
+            setPostsLoading(false)
+        }
+    }
 
     useEffect(() => {
         const fetchPages = async () => {
@@ -387,6 +413,64 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                     }
                                                 }}
                                             />
+                                            <Dialog open={postPickerOpen} onOpenChange={setPostPickerOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            fetchPosts();
+                                                        }}
+                                                        disabled={postsLoading}
+                                                    >
+                                                        {postsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Listar Posts"}
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-zinc-950 border-zinc-800 text-white">
+                                                    <DialogHeader>
+                                                        <DialogTitle>Selecionar Posts Recentes</DialogTitle>
+                                                        <DialogDescription>Clique para adicionar/remover monitoramento.</DialogDescription>
+                                                    </DialogHeader>
+
+                                                    <div className="flex-1 overflow-y-auto p-1 space-y-2">
+                                                        {posts.map(post => {
+                                                            const isSelected = (triggerConfig.postIds || []).some((id: string) => post.id.endsWith(id));
+                                                            return (
+                                                                <div
+                                                                    key={post.id}
+                                                                    onClick={() => {
+                                                                        const current = triggerConfig.postIds || [];
+                                                                        let newIds;
+                                                                        if (isSelected) {
+                                                                            newIds = current.filter((id: string) => !post.id.endsWith(id));
+                                                                        } else {
+                                                                            newIds = [...current, post.id];
+                                                                        }
+                                                                        setTriggerConfig({ ...triggerConfig, postIds: newIds });
+                                                                    }}
+                                                                    className={`
+                                                                        flex gap-4 p-3 rounded border transition-colors cursor-pointer
+                                                                        ${isSelected ? 'bg-blue-500/10 border-blue-500/50' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}
+                                                                    `}
+                                                                >
+                                                                    {post.full_picture && (
+                                                                        <img src={post.full_picture} alt="" className="w-16 h-16 object-cover rounded" />
+                                                                    )}
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm text-zinc-300 line-clamp-2">{post.message || '[Sem legenda]'}</p>
+                                                                        <p className="text-xs text-zinc-500 mt-1">
+                                                                            {new Date(post.created_time).toLocaleDateString()} • ID: {post.id}
+                                                                        </p>
+                                                                    </div>
+                                                                    {isSelected && <div className="text-blue-500"><Plus className="w-5 h-5 rotate-45" /></div>}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                        {posts.length === 0 && !postsLoading && <div className="p-4 text-center text-zinc-500">Nenhum post recente encontrado.</div>}
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {(triggerConfig.postIds || []).map((pid: string, i: number) => (
