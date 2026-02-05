@@ -434,6 +434,23 @@ async function matchAndExecuteComment(page: any, commentEvent: any) {
             }
         });
 
+        // Create MessageEvent (New Architecture) for Counters/Analytics
+        try {
+            if ((prisma as any).messageEvent) {
+                await (prisma as any).messageEvent.create({
+                    data: {
+                        pageId: page.pageId,
+                        psid: commenterPsid,
+                        direction: 'OUT',
+                        source: 'comment_dm',
+                        messageType: 'text',
+                        ruleId: matchedRule.id,
+                        payloadJson: { text: text, action: 'reply_to_comment', comment_id: commentEvent.comment_id }
+                    }
+                });
+            }
+        } catch (e) { console.warn("Failed to create MessageEvent OUT", e); }
+
         // Execute actions
         console.log(`[Engine] Executing actions for rule ${matchedRule.id}, replyToCommentId: ${commentEvent.comment_id}`);
         await executeRule(matchedRule, page, contact, logEntry.id, text, commentEvent.comment_id);
@@ -708,6 +725,29 @@ async function sendGraphApi(page: any, contact: any, body: any, refLogId: string
                 rawResponse: respData
             }
         });
+
+        // 2. Log to MessageEvent (New Architecture)
+        // We log the *result* event here.
+        if (success) {
+            try {
+                if ((prisma as any).messageEvent) {
+                    await (prisma as any).messageEvent.create({
+                        data: {
+                            pageId: page.pageId,
+                            psid: contact.psid,
+                            direction: 'OUT',
+                            source: 'automation',
+                            messageType: 'text', // simplified
+                            payloadJson: body,
+                            createdAt: new Date()
+                        }
+                    });
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
     } catch (e) {
         // If refLogId was a MessageEvent ID, this fails. 
         // We should try updating MessageEvent?
