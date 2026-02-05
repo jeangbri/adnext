@@ -24,18 +24,26 @@ export type DashboardStats = {
         active7d: number;
         active30d: number;
     };
+    broadcastStats: {
+        totalCampaigns: number;
+        totalSent: number;
+    };
 };
 
-export async function getDashboardStats(workspaceId: string, pageId?: string): Promise<DashboardStats> {
+export async function getDashboardStats(workspaceId: string, pageId?: string, pageIds?: string[]): Promise<DashboardStats> {
     // Helper filter for Page ID
-    const pageFilter = pageId ? { pageId } : {};
+    const pageFilter = pageId
+        ? { pageId }
+        : (pageIds && pageIds.length > 0 ? { pageId: { in: pageIds } } : {});
 
     // NEW: Direct column filters (much faster)
-    const directPageFilter = pageId ? { pageId } : {};
+    const directPageFilter = pageId
+        ? { pageId }
+        : (pageIds && pageIds.length > 0 ? { pageId: { in: pageIds } } : {});
 
     const rulePageFilter = pageId
         ? { OR: [{ pageIds: { has: pageId } }, { pageIds: { equals: [] } }] }
-        : {};
+        : (pageIds && pageIds.length > 0 ? { OR: [{ pageIds: { hasSome: pageIds } }, { pageIds: { equals: [] } }] } : {});
 
     // 1. Counts
     const activeRules = await prisma.automationRule.count({

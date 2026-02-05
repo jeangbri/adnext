@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { createProject, deleteProject } from "@/app/actions/projects"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAppStore } from "@/store/context-store"
+import { setContext } from "@/app/actions/context"
 
 interface Project {
     id: string
@@ -49,6 +50,22 @@ export function ProjectList({ initialProjects }: { initialProjects: Project[] })
             router.refresh()
         } catch (e: any) {
             toast.error(e.message)
+        }
+    }
+
+    async function handleOpenDashboard(projectId: string) {
+        try {
+            // Client side update
+            useAppStore.getState().setProject(projectId)
+
+            // Server side sync
+            await setContext(projectId, 'ALL')
+
+            toast.success("Projeto selecionado!")
+            router.push('/dashboard')
+        } catch (e) {
+            console.error(e)
+            toast.error("Erro ao abrir dashboard")
         }
     }
 
@@ -99,11 +116,14 @@ export function ProjectList({ initialProjects }: { initialProjects: Project[] })
                         <CardContent>
                         </CardContent>
                         <CardFooter className="flex justify-between border-t border-zinc-800/50 pt-4">
-                            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white" asChild>
-                                <Link href={`/projects/${project.id}`}>
-                                    <ExternalLink className="mr-2 h-4 w-4" />
-                                    Abrir Dashboard
-                                </Link>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-zinc-400 hover:text-white"
+                                onClick={() => handleOpenDashboard(project.id)}
+                            >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Abrir Dashboard
                             </Button>
                             <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10" onClick={() => handleDelete(project.id)}>
                                 <Trash2 className="h-4 w-4" />

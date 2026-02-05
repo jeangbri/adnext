@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma"
 import { getPrimaryWorkspace } from "@/lib/workspace"
+import { getScopedContext } from "@/lib/user-scope"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus, Zap, Trash2, Edit } from "lucide-react"
@@ -15,10 +16,47 @@ export default async function AutomationsPage() {
     if (!user) redirect('/entrar')
 
     const workspace = await getPrimaryWorkspace(user.id, user.email || '')
+    const scope = await getScopedContext()
+    const workspaceId = workspace.id
+
+    // Construct robust filter
+    let whereClause: any = { workspaceId }
+
+    if (scope?.projectId) {
+        // If we are in a Project context
+        if (scope.pageId && scope.pageId !== 'ALL') {
+            // Specific Page Selected
+            whereClause.OR = [
+                { pageId: scope.pageId },                 // New single field
+                { pageIds: { has: scope.pageId } },       // Old array field
+                { AND: [{ pageId: null }, { pageIds: { equals: [] } }] } // Global rules
+            ]
+        } else {
+            // "All Pages" of the Project
+            const projectPageIds = scope.pageIds || []
+
+            if (projectPageIds.length > 0) {
+                whereClause.OR = [
+                    { pageId: { in: projectPageIds } },
+                    { pageIds: { hasSome: projectPageIds } },
+                    { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
+                ]
+            } else {
+                // Project has no pages yet? Show only global
+                whereClause.OR = [
+                    { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
+                ]
+            }
+        }
+    } else {
+        // No project selected (Legacy View or "No Project" view)
+        // Show everything for workspace? Or just globals?
+        // Let's show everything to be safe for now.
+    }
 
     // Fetch Rules
     const rules = await prisma.automationRule.findMany({
-        where: { workspaceId: workspace.id },
+        where: whereClause,
         orderBy: { priority: 'desc' },
         include: { actions: true }
     })
