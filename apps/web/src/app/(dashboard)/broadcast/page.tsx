@@ -38,6 +38,17 @@ export default function BroadcastListPage() {
         }
     }
 
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'COMPLETED': return 'Concluído'
+            case 'SENDING': return 'Em Envio'
+            case 'SCHEDULED': return 'Agendado'
+            case 'FAILED': return 'Falha'
+            case 'DRAFT': return 'Rascunho'
+            default: return status
+        }
+    }
+
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between">
@@ -96,7 +107,7 @@ export default function BroadcastListPage() {
                                             </div>
                                         </div>
                                         <Badge className={`${getStatusColor(campaign.status)} border-0`}>
-                                            {campaign.status}
+                                            {getStatusLabel(campaign.status)}
                                         </Badge>
                                     </div>
                                 </div>

@@ -42,7 +42,18 @@ export default function BroadcastDetailPage({ params }: { params: { id: string }
         }, 5000)
 
         return () => clearInterval(interval)
-    }, [params.id, campaign?.status]) // Re-run if status changes? Be careful of loops. Simpler: just poll always or conditionally.
+    }, [params.id, campaign?.status])
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'COMPLETED': return 'Concluído'
+            case 'SENDING': return 'Em Envio'
+            case 'SCHEDULED': return 'Agendado'
+            case 'FAILED': return 'Falha'
+            case 'DRAFT': return 'Rascunho'
+            default: return status
+        }
+    }
 
     const handleAction = async (status: string) => {
         // Pause/Resume
@@ -60,7 +71,7 @@ export default function BroadcastDetailPage({ params }: { params: { id: string }
                 <div>
                     <h2 className="text-2xl font-bold text-white">{campaign.name}</h2>
                     <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline">{campaign.status}</Badge>
+                        <Badge variant="outline">{getStatusLabel(campaign.status)}</Badge>
                         <span className="text-sm text-zinc-500">{campaign.page.pageName}</span>
                     </div>
                 </div>
