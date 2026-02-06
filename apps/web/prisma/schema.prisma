@@ -106,6 +106,7 @@ model MessengerPage {
   conversations        Conversation[]
   messageEvents        MessageEvent[]
   commentEvents        CommentEvent[]
+  conversationStates   ConversationState[]
 }
 
 model Contact {
@@ -158,8 +159,31 @@ model AutomationRule {
   triggerType     String   @default("MESSAGE_ANY") // MESSAGE_ANY, MESSAGE_OUTSIDE_24H, COMMENT_ON_POST
   triggerConfig   Json?    // Stores specific config like postIds, thresholdHours, etc.
   
+  // New Flow Field
+  flow            Json?    // { enabled: true, steps: [...] }
+
   @@index([workspaceId, isActive])
   @@index([pageId, triggerType])
+}
+
+model ConversationState {
+  id           String   @id @default(uuid())
+  pageId       String
+  senderPsid   String
+  projectId    String?
+  ruleId       String
+  stepId       String
+  status       String   // waiting_input, finished
+  expectedType String   // keyword, number, any
+  metadata     Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  page         MessengerPage @relation(fields: [pageId], references: [pageId])
+
+  @@unique([pageId, senderPsid])
+  @@index([expiresAt])
 }
 
 model AutomationAction {

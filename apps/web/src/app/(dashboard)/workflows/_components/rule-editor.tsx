@@ -56,6 +56,10 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
     const [triggerType, setTriggerType] = useState<string>(rule?.triggerType || 'MESSAGE_ANY')
     const [triggerConfig, setTriggerConfig] = useState<any>(rule?.triggerConfig || {})
 
+    // Flow State
+    const [flowEnabled, setFlowEnabled] = useState(rule?.flow?.enabled || false)
+    const [flowSteps, setFlowSteps] = useState<any[]>(rule?.flow?.steps || [])
+
     // Page Selection State
     const [accounts, setAccounts] = useState<any[]>([])
     const [selectedPageIds, setSelectedPageIds] = useState<string[]>(rule?.pageIds || [])
@@ -242,7 +246,11 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             pageIds: selectedPageIds,
             triggerType,
             triggerConfig,
-            actions
+            actions: flowEnabled ? [] : actions, // Clear actions if flow enabled
+            flow: {
+                enabled: flowEnabled,
+                steps: flowEnabled ? flowSteps : []
+            }
         }
 
         try {
@@ -317,10 +325,10 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                         setTriggerType(v);
                                         // Reset/Set defaults based on type
                                         if (v === 'MESSAGE_OUTSIDE_24H') {
-                                            setTriggerConfig(prev => ({ ...prev, thresholdHours: 24, onlyIfReturning: true }));
+                                            setTriggerConfig((prev: any) => ({ ...prev, thresholdHours: 24, onlyIfReturning: true }));
                                         }
                                         if (v === 'COMMENT_ON_POST') {
-                                            setTriggerConfig(prev => ({ ...prev, ignoreOwnComments: true }));
+                                            setTriggerConfig((prev: any) => ({ ...prev, ignoreOwnComments: true }));
                                         }
                                     }}
                                 >
@@ -577,316 +585,474 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                     </div>
                 </div>
 
-                {/* Right Column: Actions */}
+                {/* Right Column: Actions or Flow */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-medium text-white flex items-center gap-2">
-                            <MessageSquare className="w-5 h-5 text-primary" />
-                            Fluxo de Resposta
-                            <Badge className="bg-zinc-800 text-zinc-400 hover:bg-zinc-800">{actions.length}</Badge>
-                        </h2>
-
-                        <div className="flex gap-2">
-                            {/* Mini Toolbar for quick add */}
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex items-center gap-4">
+                            <h2 className="text-lg font-medium text-white flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-primary" />
+                                Resposta
+                            </h2>
+                            <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
+                                <span className={`text-xs ${!flowEnabled ? 'text-white font-medium' : 'text-zinc-500'}`}>Simples</span>
+                                <Switch checked={flowEnabled} onCheckedChange={setFlowEnabled} />
+                                <span className={`text-xs ${flowEnabled ? 'text-blue-400 font-medium' : 'text-zinc-500'}`}>Fluxo Conversacional</span>
+                            </div>
                         </div>
+
+                        {!flowEnabled && (
+                            <Badge className="bg-zinc-800 text-zinc-400 hover:bg-zinc-800">{actions.length} ações</Badge>
+                        )}
                     </div>
 
-                    <div className="space-y-4 min-h-[200px]">
-                        {actions.length === 0 && (
-                            <div className="h-64 rounded-xl border border-dashed border-zinc-800 flex flex-col items-center justify-center text-zinc-500 gap-4 bg-zinc-900/20">
-                                <MessageSquare className="w-10 h-10 opacity-20" />
-                                <p>Nenhuma ação definida.</p>
-                                <p className="text-sm">Selecione uma ação abaixo para começar.</p>
+                    {flowEnabled ? (
+                        <div className="space-y-6">
+                            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-200">
+                                <strong>Modo Conversacional:</strong> Crie perguntas e direcione o usuário com base nas respostas.
                             </div>
-                        )}
 
-                        {actions.map((action, idx) => (
-                            <div key={idx} className="group relative pl-4 border-l-2 border-zinc-800 hover:border-primary/50 transition-colors">
-                                {/* Action Connector Line */}
-                                <div className="absolute -left-[5px] top-6 w-2 h-2 rounded-full bg-zinc-800 group-hover:bg-primary transition-colors ring-4 ring-background" />
-
-                                <Card className="bg-zinc-950/50 border-zinc-800/80 group-hover:border-zinc-700 transition-colors">
-                                    <CardHeader className="py-3 px-4 bg-white/5 border-b border-white/5 flex flex-row items-center justify-between">
+                            {flowSteps.map((step, sIdx) => (
+                                <Card key={sIdx} className="bg-zinc-900/40 border-zinc-800">
+                                    <CardHeader className="py-3 px-4 border-b border-white/5 flex flex-row items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="bg-black/40 border-zinc-700 font-mono text-[10px] uppercase tracking-wider text-zinc-400">
-                                                {getActionLabel(action.type)}
+                                            <Badge variant="outline" className="bg-blue-500/10 border-blue-500/30 text-blue-400">
+                                                {step.id}
                                             </Badge>
-                                            <span className="text-xs text-zinc-500">Ação #{idx + 1}</span>
+                                            <Input
+                                                className="w-24 h-7 text-xs bg-black/20 border-zinc-700"
+                                                value={step.id}
+                                                onChange={e => {
+                                                    const newSteps = [...flowSteps]
+                                                    newSteps[sIdx].id = e.target.value
+                                                    setFlowSteps(newSteps)
+                                                }}
+                                            />
+                                            <Select
+                                                value={step.expectedType || 'any'}
+                                                onValueChange={v => {
+                                                    const newSteps = [...flowSteps]
+                                                    newSteps[sIdx].expectedType = v
+                                                    setFlowSteps(newSteps)
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-7 w-[110px] text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="any">Qualquer</SelectItem>
+                                                    <SelectItem value="keyword">Texto Exato</SelectItem>
+                                                    <SelectItem value="number">Número</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/20 border border-zinc-800/50 mx-2">
-                                                <span className="text-[10px] text-zinc-500">Atraso:</span>
-                                                <Input
-                                                    className="w-12 h-5 text-[10px] px-1 py-0 bg-transparent border-none focus-visible:ring-0 text-right"
-                                                    value={action.delayMs}
-                                                    onChange={e => updateAction(idx, 'delayMs', Number(e.target.value))}
-                                                />
-                                                <span className="text-[10px] text-zinc-500">ms</span>
-                                            </div>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md" onClick={() => removeAction(idx)}>
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </Button>
-                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => {
+                                            setFlowSteps(flowSteps.filter((_, i) => i !== sIdx))
+                                        }}>
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
                                     </CardHeader>
-                                    <CardContent className="p-4">
-                                        {/* TEXT EDITOR */}
-                                        {action.type === 'TEXT' && (
+                                    <CardContent className="p-4 space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-zinc-400">Pergunta / Mensagem</Label>
+                                            <textarea
+                                                className="flex w-full rounded-md border border-zinc-700 bg-black/40 px-3 py-2 text-sm text-white focus-visible:ring-1 focus-visible:ring-primary min-h-[60px]"
+                                                value={step.message}
+                                                onChange={e => {
+                                                    const newSteps = [...flowSteps]
+                                                    newSteps[sIdx].message = e.target.value
+                                                    setFlowSteps(newSteps)
+                                                }}
+                                                placeholder="Ex: Qual sua cor favorita?"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-xs text-zinc-400">Condições (Se resposta for...)</Label>
+                                                <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => {
+                                                    const newSteps = [...flowSteps]
+                                                    newSteps[sIdx].conditions = [...(step.conditions || []), { match: '', nextStep: '' }]
+                                                    setFlowSteps(newSteps)
+                                                }}>
+                                                    + Condição
+                                                </Button>
+                                            </div>
                                             <div className="space-y-2">
-                                                <Label className="text-xs text-zinc-400">Mensagem de texto</Label>
-                                                <textarea
-                                                    className="flex w-full rounded-md border border-zinc-700 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[80px]"
-                                                    value={action.payload.text || ''}
-                                                    onChange={e => updateAction(idx, 'payload.text', e.target.value)}
-                                                    placeholder="Olá! Como posso ajudar?"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {/* AUDIO EDITOR */}
-                                        {action.type === 'AUDIO' && (
-                                            <div className="space-y-4">
-                                                <Label className="text-xs text-zinc-400">Arquivo de Áudio</Label>
-                                                <div className="flex flex-col gap-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <Input
-                                                            disabled
-                                                            value={action.payload.url || ''}
-                                                            placeholder="URL do aúdio..."
-                                                            className="bg-black/40 border-zinc-800 opacity-70"
-                                                        />
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <label className="flex-1 cursor-pointer">
-                                                            <div className="flex items-center justify-center gap-2 w-full h-10 rounded-md border border-dashed border-zinc-700 hover:border-primary/50 hover:bg-primary/5 transition-all text-sm text-zinc-400 hover:text-primary">
-                                                                {uploading[idx] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                                                                {uploading[idx] ? 'Enviando...' : 'Carregar do Dispositivo (MP3, OGG, WAV)'}
-                                                            </div>
-                                                            <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileUpload(e, idx)} />
-                                                        </label>
-                                                    </div>
-
-                                                    {action.payload.url && (
-                                                        <audio controls src={action.payload.url} className="w-full mt-2 h-8" />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* IMAGE EDITOR */}
-                                        {action.type === 'IMAGE' && (
-                                            <div className="space-y-4">
-                                                <Label className="text-xs text-zinc-400">Imagem Avulsa</Label>
-                                                <div className="flex flex-col gap-3">
-                                                    <label className="flex-1 cursor-pointer">
-                                                        <div className="relative group overflow-hidden rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 aspect-video flex flex-col items-center justify-center">
-                                                            {action.payload.url ? (
-                                                                // eslint-disable-next-line @next/next/no-img-element
-                                                                <img src={action.payload.url} alt="Preview" className="w-full h-full object-contain" />
-                                                            ) : (
-                                                                <>
-                                                                    {uploading[idx] ? <Loader2 className="w-8 h-8 animate-spin text-zinc-500" /> : <ImageIcon className="w-8 h-8 text-zinc-500 mb-2 group-hover:text-primary" />}
-                                                                    <span className="text-sm text-zinc-400 group-hover:text-primary">Clique para enviar imagem</span>
-                                                                </>
-                                                            )}
-                                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx)} />
+                                                {(step.conditions || []).map((cond: any, cIdx: number) => (
+                                                    <div key={cIdx} className="grid grid-cols-12 gap-2 p-2 bg-black/20 rounded border border-zinc-800/50 items-center">
+                                                        <div className="col-span-4">
+                                                            <Input
+                                                                placeholder="Resposta exata"
+                                                                className="h-7 text-xs bg-black/40 border-zinc-700"
+                                                                value={cond.match}
+                                                                onChange={e => {
+                                                                    const newSteps = [...flowSteps]
+                                                                    newSteps[sIdx].conditions[cIdx].match = e.target.value
+                                                                    setFlowSteps(newSteps)
+                                                                }}
+                                                            />
                                                         </div>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* BUTTONS TEMPLATE EDITOR */}
-                                        {action.type === 'BUTTON_TEMPLATE' && (
-                                            <div className="space-y-4">
-                                                <div className="space-y-2">
-                                                    <Label className="text-xs text-zinc-400">Texto de Apoio</Label>
-                                                    <Input
-                                                        className="bg-black/40 border-zinc-800"
-                                                        value={action.payload.text || ''}
-                                                        onChange={e => updateAction(idx, 'payload.text', e.target.value)}
-                                                        placeholder="Escolha uma opção abaixo:"
-                                                    />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
-                                                        <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
-                                                            <Plus className="w-3 h-3 mr-1" /> Add
-                                                        </Button>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
-                                                            <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-start">
-                                                                <div className="col-span-3">
-                                                                    <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
-                                                                        <SelectTrigger className="h-8 text-xs bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
-                                                                        <SelectContent>
-                                                                            <SelectItem value="web_url">Link</SelectItem>
-                                                                            <SelectItem value="postback">Postback</SelectItem>
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                </div>
-                                                                <div className="col-span-4">
-                                                                    <Input
-                                                                        className="h-8 text-xs bg-black/40 border-zinc-700"
-                                                                        placeholder="Título"
-                                                                        value={btn.title}
-                                                                        onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <div className="col-span-4">
-                                                                    <Input
-                                                                        className="h-8 text-xs bg-black/40 border-zinc-700"
-                                                                        placeholder={btn.type === 'web_url' ? 'https://...' : 'Payload ID'}
-                                                                        value={btn.type === 'web_url' ? btn.url : btn.payload}
-                                                                        onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <div className="col-span-1 flex justify-end">
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
-                                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                        {(action.payload.buttons?.length || 0) === 0 && (
-                                                            <div className="text-center py-4 text-xs text-zinc-600 border border-dashed border-zinc-800 rounded">
-                                                                Adicione botões clicando no + acima
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* GENERIC TEMPLATE (CARD WITH IMAGE) EDITOR */}
-                                        {action.type === 'GENERIC_TEMPLATE' && (
-                                            <div className="flex flex-col md:flex-row gap-4">
-                                                {/* Image Upload Area */}
-                                                <div className="w-full md:w-1/3 shrink-0">
-                                                    <label className="cursor-pointer block h-full">
-                                                        <div className="h-full min-h-[140px] rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 flex flex-col items-center justify-center overflow-hidden relative">
-                                                            {action.payload.imageUrl ? (
-                                                                // eslint-disable-next-line @next/next/no-img-element
-                                                                <img src={action.payload.imageUrl} alt="Card Cover" className="absolute inset-0 w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="text-center p-4">
-                                                                    {uploading[idx] ? <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-zinc-500" /> : <ImageIcon className="w-6 h-6 mx-auto mb-2 text-zinc-500" />}
-                                                                    <span className="text-[10px] text-zinc-400 block">Capa do Card</span>
-                                                                </div>
-                                                            )}
-                                                            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Upload className="w-6 h-6 text-white" />
-                                                            </div>
-                                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
+                                                        <div className="col-span-1 text-center text-zinc-500">→</div>
+                                                        <div className="col-span-6">
+                                                            <Input
+                                                                placeholder="ID Próxima Etapa (Ex: step_2)"
+                                                                className="h-7 text-xs bg-black/40 border-zinc-700"
+                                                                value={cond.nextStep}
+                                                                onChange={e => {
+                                                                    const newSteps = [...flowSteps]
+                                                                    newSteps[sIdx].conditions[cIdx].nextStep = e.target.value
+                                                                    setFlowSteps(newSteps)
+                                                                }}
+                                                            />
                                                         </div>
-                                                    </label>
-                                                </div>
-
-                                                <div className="flex-1 space-y-3">
-                                                    <div className="space-y-1">
-                                                        <Label className="text-xs text-zinc-400">Título</Label>
-                                                        <Input
-                                                            className="h-8 bg-black/40 border-zinc-800"
-                                                            value={action.payload.title || ''}
-                                                            onChange={e => updateAction(idx, 'payload.title', e.target.value)}
-                                                            placeholder="Título do Produto/Card"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <Label className="text-xs text-zinc-400">Subtítulo</Label>
-                                                        <Input
-                                                            className="h-8 bg-black/40 border-zinc-800"
-                                                            value={action.payload.subtitle || ''}
-                                                            onChange={e => updateAction(idx, 'payload.subtitle', e.target.value)}
-                                                            placeholder="Breve descrição..."
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-2 pt-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
-                                                            <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
-                                                                <Plus className="w-3 h-3 mr-1" /> Add
-                                                            </Button>
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
-                                                                <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-center">
-                                                                    <div className="col-span-3">
-                                                                        <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
-                                                                            <SelectTrigger className="h-7 text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="web_url">Link</SelectItem>
-                                                                                <SelectItem value="postback">Postback</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </div>
-                                                                    <div className="col-span-4">
-                                                                        <Input
-                                                                            className="h-7 text-[10px] bg-black/40 border-zinc-700"
-                                                                            placeholder="Título"
-                                                                            value={btn.title}
-                                                                            onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
-                                                                        />
-                                                                    </div>
-                                                                    <div className="col-span-4">
-                                                                        <Input
-                                                                            className="h-7 text-[10px] bg-black/40 border-zinc-700"
-                                                                            placeholder={btn.type === 'web_url' ? 'URL' : 'Payload'}
-                                                                            value={btn.type === 'web_url' ? btn.url : btn.payload}
-                                                                            onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
-                                                                        />
-                                                                    </div>
-                                                                    <div className="col-span-1 flex justify-end">
-                                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
-                                                                            <Trash2 className="w-3 h-3" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
+                                                        <div className="col-span-1 flex justify-end">
+                                                            <Trash2 className="w-3.5 h-3.5 text-zinc-600 cursor-pointer hover:text-red-400" onClick={() => {
+                                                                const newSteps = [...flowSteps]
+                                                                newSteps[sIdx].conditions = step.conditions.filter((_: any, i: number) => i !== cIdx)
+                                                                setFlowSteps(newSteps)
+                                                            }} />
                                                         </div>
                                                     </div>
-                                                </div>
+                                                ))}
+                                                {(step.conditions || []).length === 0 && (
+                                                    <div className="text-[10px] text-zinc-500 text-center py-2 border border-dashed border-zinc-800 rounded">
+                                                        Sem condições. O fluxo para aqui ou usa Fallback.
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
 
+                                        <div className="space-y-2 pt-2 border-t border-white/5">
+                                            <Label className="text-xs text-zinc-400">Fallback (Se não bater nenhuma condição)</Label>
+                                            <Input
+                                                className="h-8 text-xs bg-black/40 border-zinc-700"
+                                                placeholder="Ex: Não entendi, fale 1 ou 2."
+                                                value={step.fallback?.message || ''}
+                                                onChange={e => {
+                                                    const newSteps = [...flowSteps]
+                                                    newSteps[sIdx].fallback = { message: e.target.value }
+                                                    setFlowSteps(newSteps)
+                                                }}
+                                            />
+                                        </div>
                                     </CardContent>
                                 </Card>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
 
-                    {/* Add Action Bar (Bottom Sticky or just Block) */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t border-zinc-800">
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('TEXT')}>
-                            <MessageSquare className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
-                            <span className="text-xs">Texto</span>
-                        </Button>
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('BUTTON_TEMPLATE')}>
-                            <MousePointerClick className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
-                            <span className="text-xs">Botões</span>
-                        </Button>
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('GENERIC_TEMPLATE')}>
-                            <div className="relative">
-                                <ImageIcon className="w-5 h-5 text-zinc-400" />
-                                <Badge className="absolute -top-2 -right-3 text-[8px] h-3 px-1">Novo</Badge>
+                            <Button
+                                variant="outline"
+                                className="w-full border-dashed border-zinc-700 hover:border-blue-500 hover:bg-blue-500/5 text-zinc-400"
+                                onClick={() => {
+                                    const nextId = `step_${flowSteps.length + 1}`
+                                    setFlowSteps([...flowSteps, { id: nextId, type: 'question', message: '', conditions: [] }])
+                                }}
+                            >
+                                <Plus className="w-4 h-4 mr-2" /> Adicionar Etapa
+                            </Button>
+                        </div>
+                    ) : (
+                        // SIMPLE MODE (ACTIONS)
+                        <>
+                            <div className="space-y-4 min-h-[200px]">
+                                {actions.length === 0 && (
+                                    <div className="h-64 rounded-xl border border-dashed border-zinc-800 flex flex-col items-center justify-center text-zinc-500 gap-4 bg-zinc-900/20">
+                                        <MessageSquare className="w-10 h-10 opacity-20" />
+                                        <p>Nenhuma ação definida.</p>
+                                        <p className="text-sm">Selecione uma ação abaixo para começar.</p>
+                                    </div>
+                                )}
+
+                                {actions.map((action, idx) => (
+                                    <div key={idx} className="group relative pl-4 border-l-2 border-zinc-800 hover:border-primary/50 transition-colors">
+                                        {/* Action Connector Line */}
+                                        <div className="absolute -left-[5px] top-6 w-2 h-2 rounded-full bg-zinc-800 group-hover:bg-primary transition-colors ring-4 ring-background" />
+
+                                        <Card className="bg-zinc-950/50 border-zinc-800/80 group-hover:border-zinc-700 transition-colors">
+                                            <CardHeader className="py-3 px-4 bg-white/5 border-b border-white/5 flex flex-row items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline" className="bg-black/40 border-zinc-700 font-mono text-[10px] uppercase tracking-wider text-zinc-400">
+                                                        {getActionLabel(action.type)}
+                                                    </Badge>
+                                                    <span className="text-xs text-zinc-500">Ação #{idx + 1}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/20 border border-zinc-800/50 mx-2">
+                                                        <span className="text-[10px] text-zinc-500">Atraso:</span>
+                                                        <Input
+                                                            className="w-12 h-5 text-[10px] px-1 py-0 bg-transparent border-none focus-visible:ring-0 text-right"
+                                                            value={action.delayMs}
+                                                            onChange={e => updateAction(idx, 'delayMs', Number(e.target.value))}
+                                                        />
+                                                        <span className="text-[10px] text-zinc-500">ms</span>
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md" onClick={() => removeAction(idx)}>
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="p-4">
+                                                {/* TEXT EDITOR */}
+                                                {action.type === 'TEXT' && (
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs text-zinc-400">Mensagem de texto</Label>
+                                                        <textarea
+                                                            className="flex w-full rounded-md border border-zinc-700 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[80px]"
+                                                            value={action.payload.text || ''}
+                                                            onChange={e => updateAction(idx, 'payload.text', e.target.value)}
+                                                            placeholder="Olá! Como posso ajudar?"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {/* AUDIO EDITOR */}
+                                                {action.type === 'AUDIO' && (
+                                                    <div className="space-y-4">
+                                                        <Label className="text-xs text-zinc-400">Arquivo de Áudio</Label>
+                                                        <div className="flex flex-col gap-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <Input
+                                                                    disabled
+                                                                    value={action.payload.url || ''}
+                                                                    placeholder="URL do aúdio..."
+                                                                    className="bg-black/40 border-zinc-800 opacity-70"
+                                                                />
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="flex-1 cursor-pointer">
+                                                                    <div className="flex items-center justify-center gap-2 w-full h-10 rounded-md border border-dashed border-zinc-700 hover:border-primary/50 hover:bg-primary/5 transition-all text-sm text-zinc-400 hover:text-primary">
+                                                                        {uploading[idx] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                                                        {uploading[idx] ? 'Enviando...' : 'Carregar do Dispositivo (MP3, OGG, WAV)'}
+                                                                    </div>
+                                                                    <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileUpload(e, idx)} />
+                                                                </label>
+                                                            </div>
+
+                                                            {action.payload.url && (
+                                                                <audio controls src={action.payload.url} className="w-full mt-2 h-8" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* IMAGE EDITOR */}
+                                                {action.type === 'IMAGE' && (
+                                                    <div className="space-y-4">
+                                                        <Label className="text-xs text-zinc-400">Imagem Avulsa</Label>
+                                                        <div className="flex flex-col gap-3">
+                                                            <label className="flex-1 cursor-pointer">
+                                                                <div className="relative group overflow-hidden rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 aspect-video flex flex-col items-center justify-center">
+                                                                    {action.payload.url ? (
+                                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                                        <img src={action.payload.url} alt="Preview" className="w-full h-full object-contain" />
+                                                                    ) : (
+                                                                        <>
+                                                                            {uploading[idx] ? <Loader2 className="w-8 h-8 animate-spin text-zinc-500" /> : <ImageIcon className="w-8 h-8 text-zinc-500 mb-2 group-hover:text-primary" />}
+                                                                            <span className="text-sm text-zinc-400 group-hover:text-primary">Clique para enviar imagem</span>
+                                                                        </>
+                                                                    )}
+                                                                    <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                        <Upload className="w-6 h-6 text-white" />
+                                                                    </div>
+                                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* BUTTONS TEMPLATE EDITOR */}
+                                                {action.type === 'BUTTON_TEMPLATE' && (
+                                                    <div className="space-y-4">
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs text-zinc-400">Texto de Apoio</Label>
+                                                            <Input
+                                                                className="bg-black/40 border-zinc-800"
+                                                                value={action.payload.text || ''}
+                                                                onChange={e => updateAction(idx, 'payload.text', e.target.value)}
+                                                                placeholder="Escolha uma opção abaixo:"
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
+                                                                <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
+                                                                    <Plus className="w-3 h-3 mr-1" /> Add
+                                                                </Button>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
+                                                                    <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-start">
+                                                                        <div className="col-span-3">
+                                                                            <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
+                                                                                <SelectTrigger className="h-8 text-xs bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="web_url">Link</SelectItem>
+                                                                                    <SelectItem value="postback">Postback</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        </div>
+                                                                        <div className="col-span-4">
+                                                                            <Input
+                                                                                className="h-8 text-xs bg-black/40 border-zinc-700"
+                                                                                placeholder="Título"
+                                                                                value={btn.title}
+                                                                                onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-4">
+                                                                            <Input
+                                                                                className="h-8 text-xs bg-black/40 border-zinc-700"
+                                                                                placeholder={btn.type === 'web_url' ? 'https://...' : 'Payload ID'}
+                                                                                value={btn.type === 'web_url' ? btn.url : btn.payload}
+                                                                                onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-1 flex justify-end">
+                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                                {(action.payload.buttons?.length || 0) === 0 && (
+                                                                    <div className="text-center py-4 text-xs text-zinc-600 border border-dashed border-zinc-800 rounded">
+                                                                        Adicione botões clicando no + acima
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* GENERIC TEMPLATE (CARD WITH IMAGE) EDITOR */}
+                                                {action.type === 'GENERIC_TEMPLATE' && (
+                                                    <div className="flex flex-col md:flex-row gap-4">
+                                                        {/* Image Upload Area */}
+                                                        <div className="w-full md:w-1/3 shrink-0">
+                                                            <label className="cursor-pointer block h-full">
+                                                                <div className="h-full min-h-[140px] rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 flex flex-col items-center justify-center overflow-hidden relative">
+                                                                    {action.payload.imageUrl ? (
+                                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                                        <img src={action.payload.imageUrl} alt="Card Cover" className="absolute inset-0 w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <div className="text-center p-4">
+                                                                            {uploading[idx] ? <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-zinc-500" /> : <ImageIcon className="w-6 h-6 mx-auto mb-2 text-zinc-500" />}
+                                                                            <span className="text-[10px] text-zinc-400 block">Capa do Card</span>
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                        <Upload className="w-6 h-6 text-white" />
+                                                                    </div>
+                                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
+                                                                </div>
+                                                            </label>
+                                                        </div>
+
+                                                        <div className="flex-1 space-y-3">
+                                                            <div className="space-y-1">
+                                                                <Label className="text-xs text-zinc-400">Título</Label>
+                                                                <Input
+                                                                    className="h-8 bg-black/40 border-zinc-800"
+                                                                    value={action.payload.title || ''}
+                                                                    onChange={e => updateAction(idx, 'payload.title', e.target.value)}
+                                                                    placeholder="Título do Produto/Card"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <Label className="text-xs text-zinc-400">Subtítulo</Label>
+                                                                <Input
+                                                                    className="h-8 bg-black/40 border-zinc-800"
+                                                                    value={action.payload.subtitle || ''}
+                                                                    onChange={e => updateAction(idx, 'payload.subtitle', e.target.value)}
+                                                                    placeholder="Breve descrição..."
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-2 pt-2">
+                                                                <div className="flex items-center justify-between">
+                                                                    <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
+                                                                    <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
+                                                                        <Plus className="w-3 h-3 mr-1" /> Add
+                                                                    </Button>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
+                                                                        <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-center">
+                                                                            <div className="col-span-3">
+                                                                                <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
+                                                                                    <SelectTrigger className="h-7 text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        <SelectItem value="web_url">Link</SelectItem>
+                                                                                        <SelectItem value="postback">Postback</SelectItem>
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                            </div>
+                                                                            <div className="col-span-4">
+                                                                                <Input
+                                                                                    className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                    placeholder="Título"
+                                                                                    value={btn.title}
+                                                                                    onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-4">
+                                                                                <Input
+                                                                                    className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                    placeholder={btn.type === 'web_url' ? 'URL' : 'Payload'}
+                                                                                    value={btn.type === 'web_url' ? btn.url : btn.payload}
+                                                                                    onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-1 flex justify-end">
+                                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
+                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                ))}
                             </div>
-                            <span className="text-xs">Card Image</span>
-                        </Button>
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('IMAGE')}>
-                            <ImageIcon className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
-                            <span className="text-xs">Img Avulsa</span>
-                        </Button>
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('AUDIO')}>
-                            <FileAudio className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
-                            <span className="text-xs">Áudio</span>
-                        </Button>
-                    </div>
+
+                            {/* Add Action Bar (Bottom Sticky or just Block) */}
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t border-zinc-800">
+                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('TEXT')}>
+                                    <MessageSquare className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
+                                    <span className="text-xs">Texto</span>
+                                </Button>
+                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('BUTTON_TEMPLATE')}>
+                                    <MousePointerClick className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
+                                    <span className="text-xs">Botões</span>
+                                </Button>
+                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('GENERIC_TEMPLATE')}>
+                                    <div className="relative">
+                                        <ImageIcon className="w-5 h-5 text-zinc-400" />
+                                        <Badge className="absolute -top-2 -right-3 text-[8px] h-3 px-1">Novo</Badge>
+                                    </div>
+                                    <span className="text-xs">Card Image</span>
+                                </Button>
+                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('IMAGE')}>
+                                    <ImageIcon className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
+                                    <span className="text-xs">Img Avulsa</span>
+                                </Button>
+                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('AUDIO')}>
+                                    <FileAudio className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
+                                    <span className="text-xs">Áudio</span>
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
     )
 }
+

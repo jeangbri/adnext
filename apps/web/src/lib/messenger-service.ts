@@ -26,6 +26,28 @@ interface MessengerEvent {
 }
 
 // ------------------------------------------------------------------
+// FLOW TYPES
+// ------------------------------------------------------------------
+interface FlowStep {
+    id: string;
+    type: string; // 'question'
+    message: string;
+    expectedType?: string;
+    conditions: FlowCondition[];
+    fallback?: { message: string };
+    expirationSeconds?: number;
+}
+interface FlowCondition {
+    match: string;
+    nextStep?: string;
+    actions?: any[];
+}
+interface FlowConfig {
+    enabled: boolean;
+    steps: FlowStep[];
+}
+
+// ------------------------------------------------------------------
 // MAIN ENTRY POINT
 // ------------------------------------------------------------------
 
@@ -258,6 +280,33 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
     const validTypes = ['MESSAGE_ANY'];
     if (isOutside24H) validTypes.push('MESSAGE_OUTSIDE_24H');
 
+    // ---------------------------------------------------------
+    // 0. Check Conversation State (Flow System)
+    // ---------------------------------------------------------
+    if (!isOutside24H) {
+        try {
+            // Check if user is in a flow
+            const state = await (prisma as any).conversationState.findUnique({
+                where: { pageId_senderPsid: { pageId: page.pageId, senderPsid: contact.psid } }
+            });
+
+            if (state) {
+                // Check Expiration
+                if (state.expiresAt < new Date()) {
+                    console.log(`[Flow] State expired for ${contact.psid}`);
+                    await (prisma as any).conversationState.delete({ where: { id: state.id } });
+                } else {
+                    // Process Flow Step
+                    console.log(`[Flow] Processing step ${state.stepId} for ${contact.psid}`);
+                    await processConditionalStep(state, page, contact, text, incomingLogId);
+                    return; // STOP normal rule processing
+                }
+            }
+        } catch (e) {
+            console.error("[Flow] State Check Error", e);
+        }
+    }
+
     const allRules = await prisma.automationRule.findMany({
         where: {
             workspaceId: page.workspaceId,
@@ -425,11 +474,11 @@ async function matchAndExecuteComment(page: any, commentEvent: any) {
         const logEntry = await prisma.messageLog.create({
             data: {
                 pageId: page.pageId,
-                psid: commenterPsid,
+                contactId: contact.id,
                 direction: 'OUT',
-                source: 'comment_dm',
-                messageType: 'text',
-                ruleId: matchedRule.id,
+                // source: 'comment_dm', // Not in schema, skipping
+                actionType: 'text',     // messageType -> actionType
+                matchedRuleId: matchedRule.id, // ruleId -> matchedRuleId
                 status: 'PENDING'
             }
         });
@@ -500,6 +549,45 @@ async function executeRule(rule: any, page: any, contact: any, refLogId: string,
             timesExecuted: 1
         }
     });
+
+    // ---------------------------------------------------------
+    // FLOW INITIATION
+    // ---------------------------------------------------------
+    if ((rule as any).flow && ((rule as any).flow as any).enabled) {
+        try {
+            const flow = (rule as any).flow as any;
+            if (flow.steps && flow.steps.length > 0) {
+                const firstStep = flow.steps[0];
+                console.log(`[Flow] Starting flow ${rule.name}, step ${firstStep.id}`);
+
+                // Create Active State
+                await (prisma as any).conversationState.upsert({
+                    where: { pageId_senderPsid: { pageId: page.pageId, senderPsid: contact.psid } },
+                    create: {
+                        pageId: page.pageId,
+                        senderPsid: contact.psid,
+                        ruleId: rule.id,
+                        stepId: firstStep.id,
+                        status: 'waiting_input',
+                        expectedType: firstStep.expectedType || 'any',
+                        expiresAt: new Date(Date.now() + (firstStep.expirationSeconds || 300) * 1000)
+                    },
+                    update: {
+                        ruleId: rule.id,
+                        stepId: firstStep.id,
+                        status: 'waiting_input',
+                        expiresAt: new Date(Date.now() + (firstStep.expirationSeconds || 300) * 1000)
+                    }
+                });
+
+                // Send First Message
+                await sendAction(page, contact, { type: 'TEXT', payload: { text: firstStep.message } }, refLogId);
+                return; // Flow started, stop normal actions
+            }
+        } catch (e) {
+            console.error("[Flow] Failed to start flow", e);
+        }
+    }
 
     let isFirstAction = true;
     for (const action of rule.actions) {
@@ -770,6 +858,109 @@ async function sendGraphApi(page: any, contact: any, body: any, refLogId: string
 // ------------------------------------------------------------------
 // HELPERS
 // ------------------------------------------------------------------
+
+// ------------------------------------------------------------------
+// FLOW RECURSION ENGINE
+// ------------------------------------------------------------------
+async function processConditionalStep(state: any, page: any, contact: any, text: string, refLogId: string) {
+    // Fetch Rule to get Definitions
+    const rule = await prisma.automationRule.findUnique({ where: { id: state.ruleId } });
+    if (!rule || !(rule as any).flow) {
+        await (prisma as any).conversationState.delete({ where: { id: state.id } });
+        return;
+    }
+
+    const flow = (rule as any).flow as any;
+    const currentStep = flow.steps.find((s: any) => s.id === state.stepId);
+
+    if (!currentStep) {
+        await (prisma as any).conversationState.delete({ where: { id: state.id } });
+        return;
+    }
+
+    const input = text.trim();
+    let matchedCondition = null;
+
+    // 1. Validation (Number Check)
+    if (state.expectedType === 'number') {
+        const num = parseFloat(input.replace(',', '.'));
+        if (isNaN(num)) {
+            // Not a number -> Fallback immediately
+            console.log(`[Flow] Expected number, got '${input}'. Sending fallback.`);
+            if (currentStep.fallback) {
+                await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Por favor, digite um número válido." } }, refLogId);
+            }
+            return; // State remains active
+        }
+    }
+
+    // 2. Check Conditions
+    if (currentStep.conditions) {
+        for (const cond of currentStep.conditions) {
+            // Exact Match (Case Insensitive)
+            if (state.expectedType === 'number') {
+                // Numeric Match
+                const inputNum = parseFloat(input.replace(',', '.'));
+                const condNum = parseFloat(cond.match.replace(',', '.'));
+                if (!isNaN(inputNum) && !isNaN(condNum) && inputNum === condNum) {
+                    matchedCondition = cond;
+                    break;
+                }
+            } else {
+                // String Match
+                // If condition match is empty, does it mean "Any"? For now, assume explicit match needed.
+                // Maybe add support for "*" as wildcard
+                if (input.toLowerCase() === cond.match.toLowerCase() || cond.match === '*') {
+                    matchedCondition = cond;
+                    break;
+                }
+            }
+        }
+    }
+
+    // 3. Handle Match or Fallback
+    if (matchedCondition) {
+        console.log(`[Flow] Matched condition '${matchedCondition.match}' -> Next: ${matchedCondition.nextStep}`);
+
+        // Execute Actions (if any)
+        if (matchedCondition.actions) {
+            for (const action of matchedCondition.actions) {
+                await sendAction(page, contact, action, refLogId);
+            }
+        }
+
+        // Move to Next Step
+        if (matchedCondition.nextStep) {
+            const nextStep = flow.steps.find((s: any) => s.id === matchedCondition.nextStep);
+            if (nextStep) {
+                await (prisma as any).conversationState.update({
+                    where: { id: state.id },
+                    data: {
+                        stepId: nextStep.id,
+                        expectedType: nextStep.expectedType || 'any',
+                        expiresAt: new Date(Date.now() + (nextStep.expirationSeconds || 300) * 1000)
+                    }
+                });
+                // Send Next Question
+                await sendAction(page, contact, { type: 'TEXT', payload: { text: nextStep.message } }, refLogId);
+            } else {
+                // Finish (Next step not found)
+                await (prisma as any).conversationState.delete({ where: { id: state.id } });
+            }
+        } else {
+            // No next step -> Finish
+            await (prisma as any).conversationState.delete({ where: { id: state.id } });
+        }
+    } else {
+        // Fallback
+        console.log(`[Flow] No match for '${input}'. Sending fallback.`);
+        if (currentStep.fallback) {
+            await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Opção inválida." } }, refLogId);
+        }
+        // State REMAINS active (waiting retry)
+    }
+}
+
 
 async function upsertContact(page: any, psid: string) {
     // Check if exists
