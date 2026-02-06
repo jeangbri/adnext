@@ -72,13 +72,13 @@ export function LeadsFunnel({ stats }: { stats: LeadStats }) {
                         {/* Active 7 days */}
                         <div className="flex items-center justify-between p-3 rounded bg-zinc-800/30 border border-zinc-800/50">
                             <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                <div className="w-2 h-2 rounded-full bg-purple-400" />
                                 <span className="text-sm text-zinc-300">Última Semana</span>
                             </div>
                             <div className="flex items-center gap-4">
                                 <div className="h-1.5 w-24 bg-zinc-800 rounded-full overflow-hidden">
                                     <div
-                                        className="h-full bg-purple-500/50"
+                                        className="h-full bg-purple-400/50"
                                         style={{ width: `${stats.total > 0 ? (stats.active7d / stats.total) * 100 : 0}%` }}
                                     />
                                 </div>
