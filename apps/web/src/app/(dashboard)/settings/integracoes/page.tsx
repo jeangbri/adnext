@@ -240,7 +240,7 @@ export default function IntegrationsPage() {
                 </CardContent>
                 <CardFooter className="flex gap-2">
                     {accounts.length === 0 && (
-                        <Button onClick={handleConnect} disabled={loading} className="bg-primary hover:bg-primary/90 text-white shadow-[0_0_20px_-5px_rgba(0,132,255,0.3)]">
+                        <Button onClick={handleConnect} disabled={loading} className="bg-[#0084FF] hover:bg-[#0084FF]/90 text-white shadow-[0_0_20px_-5px_rgba(0,132,255,0.3)]">
                             Conectar Facebook Page
                         </Button>
                     )}
@@ -326,7 +326,7 @@ export default function IntegrationsPage() {
 
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setConfigOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleSaveConfig} disabled={loading} className="bg-primary text-white">
+                        <Button onClick={handleSaveConfig} disabled={loading} className="bg-[#0084FF] hover:bg-[#0084FF]/90 text-white">
                             Salvar Alterações
                         </Button>
                     </DialogFooter>
