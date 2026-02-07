@@ -28,10 +28,149 @@ interface RuleEditorProps {
 type ButtonType = 'web_url' | 'postback'
 
 interface ActionButton {
-    type: ButtonType
-    title: string
-    url?: string
-    payload?: string
+    type?: ButtonType // Legacy
+    title?: string // Legacy
+    url?: string // Legacy
+    payload?: string // Legacy
+
+    // New Structure
+    label: string
+    actionType: 'reply' | 'url' | 'flow_jump'
+    value: string
+}
+
+function DelayInput({ valueMs, onChange }: { valueMs: number, onChange: (ms: number) => void }) {
+    const [unit, setUnit] = useState<'seconds' | 'minutes' | 'hours'>('minutes')
+    const [value, setValue] = useState(0)
+
+    useEffect(() => {
+        if (valueMs === 0) {
+            setValue(0)
+            return
+        }
+
+        if (valueMs % 3600000 === 0) {
+            setUnit('hours')
+            setValue(valueMs / 3600000)
+        } else if (valueMs % 60000 === 0) {
+            setUnit('minutes')
+            setValue(valueMs / 60000)
+        } else {
+            setUnit('seconds')
+            setValue(Math.floor(valueMs / 1000))
+        }
+    }, [valueMs]) // Only on mount or external change? Actually dependency on valueMs handles "external" updates correctly.
+
+    const update = (v: number, u: string) => {
+        let ms = 0
+        if (u === 'seconds') ms = v * 1000
+        if (u === 'minutes') ms = v * 60000
+        if (u === 'hours') ms = v * 3600000
+        onChange(ms)
+        setValue(v)
+        setUnit(u as any)
+    }
+
+    return (
+        <div className="flex items-center gap-1 bg-black/20 rounded border border-zinc-800/50 p-1">
+            <span className="text-[10px] text-zinc-500 pl-1">Delay:</span>
+            <Input
+                type="number"
+                min={0}
+                className="w-12 h-6 text-xs px-1 py-0 bg-transparent border-none focus-visible:ring-0 text-right"
+                value={value}
+                onChange={e => update(Number(e.target.value), unit)}
+            />
+            <Select value={unit} onValueChange={v => update(value, v)}>
+                <SelectTrigger className="h-6 w-[70px] text-[10px] px-1 border-none bg-transparent focus:ring-0 gap-0">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="seconds">Seg</SelectItem>
+                    <SelectItem value="minutes">Min</SelectItem>
+                    <SelectItem value="hours">Horas</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+    )
+}
+
+function migrateActions(actions: any[]) {
+    const newActions: any[] = []
+
+    // Helper to map old button to new format
+    const mapBtn = (b: any) => {
+        let actionType: any = 'reply'
+        let value = ''
+
+        if (b.type === 'web_url') {
+            actionType = 'url'
+            value = b.url || ''
+        } else {
+            if (b.payload && b.payload.startsWith('FLOW_JUMP::')) {
+                actionType = 'flow_jump'
+                value = b.payload.replace('FLOW_JUMP::', '')
+            } else {
+                actionType = 'reply'
+                value = b.payload || b.title || ''
+            }
+        }
+
+        return {
+            label: b.title || b.label || 'Botão',
+            actionType,
+            value
+        }
+    }
+
+    for (let i = 0; i < actions.length; i++) {
+        const action = actions[i]
+
+        // Merge TEXT + BUTTON_TEMPLATE sequence
+        if (action.type === 'TEXT') {
+            const nextAction = actions[i + 1]
+            if (nextAction && nextAction.type === 'BUTTON_TEMPLATE' && (!nextAction.delayMs || nextAction.delayMs === 0)) {
+                newActions.push({
+                    type: 'MESSAGE_WITH_BUTTONS',
+                    delayMs: action.delayMs,
+                    payload: {
+                        message: action.payload.text,
+                        buttons: (nextAction.payload.buttons || []).map(mapBtn)
+                    }
+                })
+                i++ // Skip next
+                continue
+            }
+
+            // Convert TEXT to MESSAGE_WITH_BUTTONS
+            newActions.push({
+                type: 'MESSAGE_WITH_BUTTONS',
+                delayMs: action.delayMs,
+                payload: {
+                    message: action.payload.text,
+                    buttons: []
+                }
+            })
+            continue
+        }
+
+        // Convert BUTTON_TEMPLATE to MESSAGE_WITH_BUTTONS
+        if (action.type === 'BUTTON_TEMPLATE') {
+            newActions.push({
+                type: 'MESSAGE_WITH_BUTTONS',
+                delayMs: action.delayMs,
+                payload: {
+                    message: action.payload.text,
+                    buttons: (action.payload.buttons || []).map(mapBtn)
+                }
+            })
+            continue
+        }
+
+        // Pass others through
+        newActions.push(action)
+    }
+    return newActions
 }
 
 export function RuleEditor({ rule, mode }: RuleEditorProps) {
@@ -103,7 +242,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
     }, [])
 
     // Actions State
-    const [actions, setActions] = useState<any[]>(rule?.actions || [])
+    const [actions, setActions] = useState<any[]>(() => migrateActions(rule?.actions || []))
 
     const addKeyword = () => {
         if (keywordInput.trim()) {
@@ -128,8 +267,9 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
 
     const getInitialPayload = (type: string) => {
         switch (type) {
-            case 'TEXT': return { text: '' }
-            case 'BUTTON_TEMPLATE': return { text: '', buttons: [] }
+            case 'TEXT': return { text: '' } // Legacy
+            case 'MESSAGE_WITH_BUTTONS': return { message: '', buttons: [] }
+            case 'BUTTON_TEMPLATE': return { text: '', buttons: [] } // Legacy
             case 'GENERIC_TEMPLATE': return { title: '', subtitle: '', imageUrl: '', buttons: [] }
             case 'AUDIO': return { url: '' }
             case 'IMAGE': return { url: '' }
@@ -139,8 +279,9 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
 
     const getActionLabel = (type: string) => {
         switch (type) {
-            case 'TEXT': return 'Texto'
-            case 'BUTTON_TEMPLATE': return 'Botões'
+            case 'TEXT': return 'Texto (Antigo)'
+            case 'MESSAGE_WITH_BUTTONS': return 'Mensagem'
+            case 'BUTTON_TEMPLATE': return 'Botões (Antigo)'
             case 'GENERIC_TEMPLATE': return 'Card (Img + Texto)'
             case 'AUDIO': return 'Áudio'
             case 'IMAGE': return 'Imagem'
@@ -212,11 +353,12 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             toast.error('Máximo de 3 botões permitidos')
             return
         }
-        const newButtons = [...currentButtons, { type: 'web_url', title: 'Novo Botão', url: '' }]
+        // New Format
+        const newButtons = [...currentButtons, { label: 'Novo Botão', actionType: 'reply', value: '' }]
         updateAction(actionIdx, 'payload.buttons', newButtons)
     }
 
-    const updateButton = (actionIdx: number, btnIdx: number, field: keyof ActionButton, value: string) => {
+    const updateButton = (actionIdx: number, btnIdx: number, field: string, value: string) => {
         const action = actions[actionIdx]
         const newButtons = [...(action.payload.buttons || [])]
         newButtons[btnIdx] = { ...newButtons[btnIdx], [field]: value }
@@ -774,31 +916,74 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                     <span className="text-xs text-zinc-500">Ação #{idx + 1}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/20 border border-zinc-800/50 mx-2">
-                                                        <span className="text-[10px] text-zinc-500">Atraso:</span>
-                                                        <Input
-                                                            className="w-12 h-5 text-[10px] px-1 py-0 bg-transparent border-none focus-visible:ring-0 text-right"
-                                                            value={action.delayMs}
-                                                            onChange={e => updateAction(idx, 'delayMs', Number(e.target.value))}
-                                                        />
-                                                        <span className="text-[10px] text-zinc-500">ms</span>
-                                                    </div>
+                                                    <DelayInput
+                                                        valueMs={action.delayMs || 0}
+                                                        onChange={(ms) => updateAction(idx, 'delayMs', ms)}
+                                                    />
                                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md" onClick={() => removeAction(idx)}>
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </Button>
                                                 </div>
                                             </CardHeader>
                                             <CardContent className="p-4">
-                                                {/* TEXT EDITOR */}
-                                                {action.type === 'TEXT' && (
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs text-zinc-400">Mensagem de texto</Label>
-                                                        <textarea
-                                                            className="flex w-full rounded-md border border-zinc-700 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[80px]"
-                                                            value={action.payload.text || ''}
-                                                            onChange={e => updateAction(idx, 'payload.text', e.target.value)}
-                                                            placeholder="Olá! Como posso ajudar?"
-                                                        />
+                                                {/* MESSAGE WITH BUTTONS EDITOR (Also handles migrated TEXT and BUTTON_TEMPLATE) */}
+                                                {(action.type === 'MESSAGE_WITH_BUTTONS' || action.type === 'TEXT' || action.type === 'BUTTON_TEMPLATE') && (
+                                                    <div className="space-y-4">
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs text-zinc-400">Mensagem</Label>
+                                                            <textarea
+                                                                className="flex w-full rounded-md border border-zinc-700 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[80px]"
+                                                                value={action.payload.message || action.payload.text || ''}
+                                                                onChange={e => updateAction(idx, 'payload.message', e.target.value)}
+                                                                placeholder="Digite sua mensagem aqui..."
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className="text-xs text-zinc-400">Botões (Opcional - Max 3)</Label>
+                                                                <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
+                                                                    <Plus className="w-3 h-3 mr-1" /> Add Botão
+                                                                </Button>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
+                                                                    <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-start">
+                                                                        <div className="col-span-3">
+                                                                            <Select value={btn.actionType || 'reply'} onValueChange={v => updateButton(idx, btnIndex, 'actionType', v)}>
+                                                                                <SelectTrigger className="h-7 text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="reply">Responder</SelectItem>
+                                                                                    <SelectItem value="url">Abrir Link</SelectItem>
+                                                                                    <SelectItem value="flow_jump">Ir p/ Fluxo</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        </div>
+                                                                        <div className="col-span-4">
+                                                                            <Input
+                                                                                className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                placeholder="Label do Botão"
+                                                                                value={btn.label || btn.title || ''}
+                                                                                onChange={e => updateButton(idx, btnIndex, 'label', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-4">
+                                                                            <Input
+                                                                                className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                placeholder={btn.actionType === 'url' ? 'https://...' : (btn.actionType === 'flow_jump' ? 'ID do Fluxo' : 'Mensagem/Payload')}
+                                                                                value={btn.value || btn.url || btn.payload || ''}
+                                                                                onChange={e => updateButton(idx, btnIndex, 'value', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="col-span-1 flex justify-end">
+                                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
+                                                                                <Trash2 className="w-3 h-3" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -859,70 +1044,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                     </div>
                                                 )}
 
-                                                {/* BUTTONS TEMPLATE EDITOR */}
-                                                {action.type === 'BUTTON_TEMPLATE' && (
-                                                    <div className="space-y-4">
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs text-zinc-400">Texto de Apoio</Label>
-                                                            <Input
-                                                                className="bg-black/40 border-zinc-800"
-                                                                value={action.payload.text || ''}
-                                                                onChange={e => updateAction(idx, 'payload.text', e.target.value)}
-                                                                placeholder="Escolha uma opção abaixo:"
-                                                            />
-                                                        </div>
-
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center justify-between">
-                                                                <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
-                                                                <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
-                                                                    <Plus className="w-3 h-3 mr-1" /> Add
-                                                                </Button>
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
-                                                                    <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-start">
-                                                                        <div className="col-span-3">
-                                                                            <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
-                                                                                <SelectTrigger className="h-8 text-xs bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    <SelectItem value="web_url">Link</SelectItem>
-                                                                                    <SelectItem value="postback">Postback</SelectItem>
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </div>
-                                                                        <div className="col-span-4">
-                                                                            <Input
-                                                                                className="h-8 text-xs bg-black/40 border-zinc-700"
-                                                                                placeholder="Título"
-                                                                                value={btn.title}
-                                                                                onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
-                                                                            />
-                                                                        </div>
-                                                                        <div className="col-span-4">
-                                                                            <Input
-                                                                                className="h-8 text-xs bg-black/40 border-zinc-700"
-                                                                                placeholder={btn.type === 'web_url' ? 'https://...' : 'Payload ID'}
-                                                                                value={btn.type === 'web_url' ? btn.url : btn.payload}
-                                                                                onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
-                                                                            />
-                                                                        </div>
-                                                                        <div className="col-span-1 flex justify-end">
-                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
-                                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                                {(action.payload.buttons?.length || 0) === 0 && (
-                                                                    <div className="text-center py-4 text-xs text-zinc-600 border border-dashed border-zinc-800 rounded">
-                                                                        Adicione botões clicando no + acima
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                {/* Removed old BUTTON_TEMPLATE editor as it is merged into MESSAGE_WITH_BUTTONS */}
 
                                                 {/* GENERIC TEMPLATE (CARD WITH IMAGE) EDITOR */}
                                                 {action.type === 'GENERIC_TEMPLATE' && (
@@ -1024,13 +1146,9 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
 
                             {/* Add Action Bar (Bottom Sticky or just Block) */}
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t border-zinc-800">
-                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('TEXT')}>
+                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('MESSAGE_WITH_BUTTONS')}>
                                     <MessageSquare className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
-                                    <span className="text-xs">Texto</span>
-                                </Button>
-                                <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('BUTTON_TEMPLATE')}>
-                                    <MousePointerClick className="w-5 h-5 text-zinc-400 group-hover:text-primary" />
-                                    <span className="text-xs">Botões</span>
+                                    <span className="text-xs">Mensagem</span>
                                 </Button>
                                 <Button variant="outline" className="h-auto py-3 flex flex-col gap-2 hover:bg-zinc-800 border-zinc-800" onClick={() => addAction('GENERIC_TEMPLATE')}>
                                     <div className="relative">

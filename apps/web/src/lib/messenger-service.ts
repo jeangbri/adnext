@@ -276,6 +276,34 @@ function checkOutside24H(conversation: any, thresholdHours = 24): boolean {
 // ------------------------------------------------------------------
 
 async function matchAndExecute(page: any, contact: any, text: string, incomingLogId: string, triggerType = 'MESSAGE_ANY', isOutside24H = false) {
+    // ---------------------------------------------------------
+    // FLOW JUMP OVERRIDE
+    // ---------------------------------------------------------
+    if (text.startsWith("FLOW_JUMP::")) {
+        const target = text.split("::")[1];
+        console.log(`[Engine] FLOW_JUMP detected to: ${target}`);
+
+        // Try to find rule by ID or Name
+        const rule = await prisma.automationRule.findFirst({
+            where: {
+                workspaceId: page.workspaceId,
+                isActive: true,
+                OR: [
+                    { id: target },
+                    { name: target }
+                ]
+            },
+            include: { actions: { orderBy: { order: 'asc' } } }
+        });
+
+        if (rule) {
+            await executeRule(rule, page, contact, incomingLogId, text);
+            return;
+        } else {
+            console.warn(`[Engine] FLOW_JUMP failed: Rule '${target}' not found or inactive.`);
+        }
+    }
+
     // 1. Fetch Active Rules (Filter by type in memory)
     const validTypes = ['MESSAGE_ANY'];
     if (isOutside24H) validTypes.push('MESSAGE_OUTSIDE_24H');
@@ -683,24 +711,46 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
             messageBody.message = { text: payload.text };
             break;
 
+        case 'MESSAGE_WITH_BUTTONS':
         case 'BUTTON_TEMPLATE':
-            if (isCommentReply) {
-                // Convert to text with links
-                const buttons = payload.buttons?.map((b: any) => `[${b.title}] ${b.type === 'web_url' ? b.url : ''}`).join('\n');
-                messageBody.message = { text: `${payload.text}\n\n${buttons}` };
+            // Logic: If has buttons -> Template. If not -> Text.
+            const hasButtons = payload.buttons && Array.isArray(payload.buttons) && payload.buttons.length > 0;
+            // Support both 'text' (old) and 'message' (new)
+            const textContent = payload.text || payload.message || "";
+
+            if (isCommentReply || !hasButtons) {
+                // Send as Text (Buttons appended as text if comment reply)
+                let finalStats = textContent;
+                if (hasButtons && isCommentReply) {
+                    const btnText = payload.buttons.map((b: any) => `[${b.title || b.label}]`).join(' ');
+                    finalStats += `\n\n${btnText}`;
+                }
+                messageBody.message = { text: finalStats };
             } else {
+                // Send as Button Template
                 messageBody.message = {
                     attachment: {
                         type: "template",
                         payload: {
                             template_type: "button",
-                            text: payload.text,
-                            buttons: payload.buttons?.map((b: any) => ({
-                                type: b.type || "web_url",
-                                url: b.type === 'web_url' ? b.url : undefined,
-                                title: b.title,
-                                payload: b.type === 'postback' ? b.payload : undefined
-                            }))
+                            text: textContent,
+                            buttons: payload.buttons.map((b: any) => {
+                                const isNewUrl = b.actionType === 'url';
+                                const isNewPostback = b.actionType === 'reply' || b.actionType === 'flow_jump';
+                                const type = isNewUrl ? 'web_url' : (isNewPostback ? 'postback' : (b.type || 'web_url'));
+
+                                let payloadVal = undefined;
+                                if (b.actionType === 'flow_jump') payloadVal = `FLOW_JUMP::${b.value}`;
+                                else if (b.actionType === 'reply') payloadVal = b.value;
+                                else payloadVal = b.payload;
+
+                                return {
+                                    type: type,
+                                    url: (type === 'web_url' ? (b.url || b.value) : undefined),
+                                    title: b.label || b.title,
+                                    payload: payloadVal
+                                };
+                            })
                         }
                     }
                 };
