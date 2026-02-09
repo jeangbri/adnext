@@ -16,44 +16,20 @@ export async function POST(req: NextRequest) {
     try {
         const workspace = await getPrimaryWorkspace(user.id, user.email || '');
 
-        // 1. Find all pages for this workspace
-        const pages = await prisma.messengerPage.findMany({
-            where: { workspaceId: workspace.id },
-            select: { pageId: true }
+        // Soft disconnect: Deactivate pages and clear tokens.
+        // This hides them from the UI (since we filter isActive: true)
+        // and prevents any background jobs from using the invalid tokens.
+        // When user reconnects, the upsert will reactivate them with new tokens.
+
+        await prisma.messengerPage.updateMany({
+            where: {
+                workspaceId: workspace.id
+            },
+            data: {
+                isActive: false,
+                pageAccessToken: "DISCONNECTED", // Clear the token
+            }
         });
-
-        const pageIds = pages.map(p => p.pageId);
-
-        if (pageIds.length === 0) {
-            return NextResponse.json({ success: true, message: "No pages to disconnect" });
-        }
-
-        // 2. Perform cleanup in transaction
-        await prisma.$transaction([
-            // Delete ephemeral state
-            prisma.conversationState.deleteMany({ where: { pageId: { in: pageIds } } }),
-
-            // Delete logs (history) - Destructive but necessary for clean disconnect
-            prisma.messageLog.deleteMany({ where: { pageId: { in: pageIds } } }),
-
-            // Delete campaigns - Destructive
-            prisma.broadcastCampaign.deleteMany({ where: { pageId: { in: pageIds } } }),
-
-            // Detach Contacts (Keep the lead, remove the page link)
-            prisma.contact.updateMany({
-                where: { pageId: { in: pageIds } },
-                data: { pageId: null }
-            }),
-
-            // Detach Rule Executions
-            prisma.ruleExecution.updateMany({
-                where: { pageId: { in: pageIds } },
-                data: { pageId: null }
-            }),
-
-            // Finally delete the pages
-            prisma.messengerPage.deleteMany({ where: { workspaceId: workspace.id } })
-        ]);
 
         return NextResponse.json({ success: true, message: "Disconnected successfully" });
     } catch (e: any) {
