@@ -149,6 +149,26 @@ export default function IntegrationsPage() {
         }
     }
 
+    const handleDisconnect = async () => {
+        if (!confirm("ATENÇÃO: Isso removerá todas as conexões de páginas, histórico de mensagens e campanhas associadas. Os contatos serão mantidos mas desvinculados. Tem certeza?")) return
+
+        try {
+            setLoading(true)
+            const res = await fetch('/api/messenger/disconnect', { method: 'POST' })
+            if (res.ok) {
+                toast.success("Todas as conexões foram removidas.")
+                fetchStatus()
+            } else {
+                const data = await res.json()
+                toast.error("Erro: " + data.error)
+            }
+        } catch (e) {
+            toast.error("Falha ao desconectar")
+        } finally {
+            setLoading(false)
+        }
+    }
+
     const addIceBreaker = () => {
         if (iceBreakers.length >= 4) {
             toast.error('Máximo de 4 perguntas frequentes')
@@ -256,9 +276,14 @@ export default function IntegrationsPage() {
                     )}
                 </CardContent>
                 <CardFooter className="flex gap-2">
-                    {accounts.length === 0 && (
+                    {accounts.length === 0 ? (
                         <Button onClick={handleConnect} disabled={loading} className="bg-[#0084FF] hover:bg-[#0084FF]/90 text-white shadow-[0_0_20px_-5px_rgba(0,132,255,0.3)]">
                             Conectar Facebook Page
+                        </Button>
+                    ) : (
+                        <Button onClick={handleDisconnect} disabled={loading} variant="destructive" className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border-red-500/20 border">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Desconectar Tudo (Reset)
                         </Button>
                     )}
                 </CardFooter>
