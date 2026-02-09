@@ -114,7 +114,7 @@ export default function LoginPage() {
                                 </span>
                             ) : (
                                 <span className="flex items-center justify-center gap-2">
-                                    Entrar na Plataforma
+                                    Entrar
                                     <ArrowRight className="w-4 h-4" />
                                 </span>
                             )}
