@@ -37,8 +37,6 @@ export async function GET(req: NextRequest) {
         'pages_read_engagement',
         'pages_messaging', // Required for sending messages
         'pages_manage_metadata', // Required for webhooks
-        'pages_read_user_content', // Required for full page access
-        'pages_manage_ads', // Required for some business pages
         'instagram_basic',
         'instagram_manage_messages',
         'instagram_manage_comments'
