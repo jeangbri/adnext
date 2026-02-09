@@ -289,7 +289,7 @@ export default function IntegrationsPage() {
                                 <Label className="text-xs uppercase tracking-wider text-zinc-500">Botão Começar (Get Started)</Label>
                                 <div className="space-y-2">
                                     <Select
-                                        value={getStartedPayload.startsWith('FLOW_JUMP::') ? getStartedPayload : (getStartedPayload ? 'custom' : '')}
+                                        value={(getStartedPayload || '').startsWith('FLOW_JUMP::') ? getStartedPayload : (getStartedPayload ? 'custom' : '')}
                                         onValueChange={(v) => {
                                             if (v === 'custom') setGetStartedPayload('')
                                             else setGetStartedPayload(v)
@@ -307,9 +307,9 @@ export default function IntegrationsPage() {
                                         </SelectContent>
                                     </Select>
 
-                                    {(!getStartedPayload.startsWith('FLOW_JUMP::') && getStartedPayload !== '' || getStartedPayload === 'custom' || (getStartedPayload && !getStartedPayload.includes('::'))) && (
+                                    {(!(getStartedPayload || '').startsWith('FLOW_JUMP::') && getStartedPayload !== '' || getStartedPayload === 'custom' || (getStartedPayload && !getStartedPayload.includes('::'))) && (
                                         <Input
-                                            value={getStartedPayload}
+                                            value={getStartedPayload || ''}
                                             onChange={e => setGetStartedPayload(e.target.value)}
                                             placeholder="Digite o Payload ou Texto..."
                                             className="bg-zinc-900 border-zinc-800"
@@ -341,7 +341,7 @@ export default function IntegrationsPage() {
                                             </div>
                                             <div className="col-span-10 sm:col-span-5">
                                                 <Select
-                                                    value={ib.payload.startsWith('FLOW_JUMP::') ? ib.payload : 'custom'}
+                                                    value={(ib.payload || '').startsWith('FLOW_JUMP::') ? ib.payload : 'custom'}
                                                     onValueChange={(v) => {
                                                         if (v === 'custom') updateIceBreaker(idx, 'payload', '')
                                                         else updateIceBreaker(idx, 'payload', v)
@@ -358,10 +358,10 @@ export default function IntegrationsPage() {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            {(!ib.payload.startsWith('FLOW_JUMP::')) && (
+                                            {!(ib.payload || '').startsWith('FLOW_JUMP::') && (
                                                 <div className="col-span-12 mt-1">
                                                     <Input
-                                                        value={ib.payload}
+                                                        value={ib.payload || ''}
                                                         onChange={e => updateIceBreaker(idx, 'payload', e.target.value)}
                                                         placeholder="Payload manual..."
                                                         className="bg-zinc-900 border-zinc-800 h-8 text-[10px] opacity-70"
