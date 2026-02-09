@@ -289,9 +289,9 @@ export default function IntegrationsPage() {
                                 <Label className="text-xs uppercase tracking-wider text-zinc-500">Botão Começar (Get Started)</Label>
                                 <div className="space-y-2">
                                     <Select
-                                        value={(getStartedPayload || '').startsWith('FLOW_JUMP::') ? getStartedPayload : (getStartedPayload ? 'custom' : '')}
+                                        value={(getStartedPayload || '').startsWith('FLOW_JUMP::') ? getStartedPayload : (getStartedPayload ? 'custom' : 'none')}
                                         onValueChange={(v) => {
-                                            if (v === 'custom') setGetStartedPayload('')
+                                            if (v === 'custom' || v === 'none') setGetStartedPayload('')
                                             else setGetStartedPayload(v)
                                         }}
                                     >
@@ -299,7 +299,7 @@ export default function IntegrationsPage() {
                                             <SelectValue placeholder="Selecione uma Automação" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
-                                            <SelectItem value="">Nenhuma Ação</SelectItem>
+                                            <SelectItem value="none">Nenhuma Ação</SelectItem>
                                             <SelectItem value="custom">Texto / Payload Customizado</SelectItem>
                                             {rules.map(rule => (
                                                 <SelectItem key={rule.id} value={`FLOW_JUMP::${rule.id}`}>📦 {rule.name}</SelectItem>
