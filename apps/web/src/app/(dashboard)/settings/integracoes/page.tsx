@@ -18,6 +18,7 @@ export default function IntegrationsPage() {
     const [loading, setLoading] = useState(true)
     const [accounts, setAccounts] = useState<any[]>([])
     const [projects, setProjects] = useState<any[]>([])
+    const [rules, setRules] = useState<any[]>([])
 
     // Config Dialog State
     const [configOpen, setConfigOpen] = useState(false)
@@ -36,6 +37,16 @@ export default function IntegrationsPage() {
     const loadProjects = async () => {
         const data = await getProjects()
         setProjects(data)
+    }
+
+    const loadRules = async () => {
+        try {
+            const res = await fetch('/api/automations')
+            if (res.ok) {
+                const data = await res.json()
+                setRules(data)
+            }
+        } catch (e) { console.error("Failed to load rules", e) }
     }
 
     const handleProjectChange = async (pageId: string, projectId: string) => {
@@ -98,7 +109,13 @@ export default function IntegrationsPage() {
     const handleOpenConfig = (account: any) => {
         setSelectedAccount(account)
         setGetStartedPayload(account.getStartedPayload || '')
-        setIceBreakers(account.iceBreakers && Array.isArray(account.iceBreakers) ? account.iceBreakers : [])
+        const rawBreakers = account.iceBreakers && Array.isArray(account.iceBreakers) ? account.iceBreakers : []
+        const normalizedBreakers = rawBreakers.map((ib: any) => ({
+            question: ib.question || '',
+            payload: ib.payload || ''
+        }))
+        setIceBreakers(normalizedBreakers)
+        loadRules();
         setConfigOpen(true)
     }
 
@@ -270,14 +287,37 @@ export default function IntegrationsPage() {
 
                             <div className="space-y-3">
                                 <Label className="text-xs uppercase tracking-wider text-zinc-500">Botão Começar (Get Started)</Label>
-                                <div className="space-y-1">
-                                    <Input
-                                        value={getStartedPayload}
-                                        onChange={e => setGetStartedPayload(e.target.value)}
-                                        placeholder="Ex: INICIAR_FLUXO"
-                                        className="bg-zinc-900 border-zinc-800"
-                                    />
-                                    <p className="text-[10px] text-zinc-500">Payload que será enviado quando o usuário clicar em "Começar" pela primeira vez.</p>
+                                <div className="space-y-2">
+                                    <Select
+                                        value={getStartedPayload.startsWith('FLOW_JUMP::') ? getStartedPayload : (getStartedPayload ? 'custom' : '')}
+                                        onValueChange={(v) => {
+                                            if (v === 'custom') setGetStartedPayload('')
+                                            else setGetStartedPayload(v)
+                                        }}
+                                    >
+                                        <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                                            <SelectValue placeholder="Selecione uma Automação" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                                            <SelectItem value="">Nenhuma Ação</SelectItem>
+                                            <SelectItem value="custom">Texto / Payload Customizado</SelectItem>
+                                            {rules.map(rule => (
+                                                <SelectItem key={rule.id} value={`FLOW_JUMP::${rule.id}`}>📦 {rule.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    {(!getStartedPayload.startsWith('FLOW_JUMP::') && getStartedPayload !== '' || getStartedPayload === 'custom' || (getStartedPayload && !getStartedPayload.includes('::'))) && (
+                                        <Input
+                                            value={getStartedPayload}
+                                            onChange={e => setGetStartedPayload(e.target.value)}
+                                            placeholder="Digite o Payload ou Texto..."
+                                            className="bg-zinc-900 border-zinc-800"
+                                        />
+                                    )}
+                                    <p className="text-[10px] text-zinc-500">
+                                        Escolha uma automação para iniciar quando o usuário clicar em "Começar".
+                                    </p>
                                 </div>
                             </div>
 
@@ -296,17 +336,38 @@ export default function IntegrationsPage() {
                                                     value={ib.question}
                                                     onChange={e => updateIceBreaker(idx, 'question', e.target.value)}
                                                     placeholder="Pergunta (Ex: Preços?)"
-                                                    className="bg-zinc-900 border-zinc-800 h-8 text-xs"
+                                                    className="bg-zinc-900 border-zinc-800 h-9 text-xs"
                                                 />
                                             </div>
                                             <div className="col-span-10 sm:col-span-5">
-                                                <Input
-                                                    value={ib.payload}
-                                                    onChange={e => updateIceBreaker(idx, 'payload', e.target.value)}
-                                                    placeholder="Payload"
-                                                    className="bg-zinc-900 border-zinc-800 h-8 text-xs"
-                                                />
+                                                <Select
+                                                    value={ib.payload.startsWith('FLOW_JUMP::') ? ib.payload : 'custom'}
+                                                    onValueChange={(v) => {
+                                                        if (v === 'custom') updateIceBreaker(idx, 'payload', '')
+                                                        else updateIceBreaker(idx, 'payload', v)
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="bg-zinc-900 border-zinc-800 h-9 text-xs">
+                                                        <SelectValue placeholder="Ação" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                                                        <SelectItem value="custom">Customizado</SelectItem>
+                                                        {rules.map(rule => (
+                                                            <SelectItem key={rule.id} value={`FLOW_JUMP::${rule.id}`}>📦 {rule.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
+                                            {(!ib.payload.startsWith('FLOW_JUMP::')) && (
+                                                <div className="col-span-12 mt-1">
+                                                    <Input
+                                                        value={ib.payload}
+                                                        onChange={e => updateIceBreaker(idx, 'payload', e.target.value)}
+                                                        placeholder="Payload manual..."
+                                                        className="bg-zinc-900 border-zinc-800 h-8 text-[10px] opacity-70"
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="col-span-2 sm:col-span-1 flex justify-end">
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeIceBreaker(idx)}>
                                                     <Trash2 className="w-3.5 h-3.5" />
