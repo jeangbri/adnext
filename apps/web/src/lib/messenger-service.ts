@@ -1,5 +1,7 @@
 import { prisma } from "./prisma";
 import { decrypt, encrypt } from "./encryption";
+import { saveAndScheduleExecution, clearExecution } from "./scheduler";
+import { v4 as uuidv4 } from "uuid";
 
 const FB_API_URL = "https://graph.facebook.com/v19.0";
 
@@ -568,6 +570,66 @@ function checkMatchCustom(text: string, keywords: string[], mode: string) {
     return keywords.some(k => input.includes(k.toLowerCase()));
 }
 
+// ------------------------------------------------------------------
+// ASYNC FLOW ENGINE (NO SLEEP)
+// ------------------------------------------------------------------
+
+export async function executeActionsUntilDelay(
+    rule: any,
+    page: any,
+    contact: any,
+    initialIndex: number,
+    runId: string,
+    refLogId: string,
+    replyToCommentId?: string
+) {
+    const actions = rule.actions || [];
+
+    console.log(`[Engine] Executing run ${runId} starting at ${initialIndex}/${actions.length}`);
+
+    // If initialIndex > 0, it means we are resuming. 
+    // We skipped the delay action itself (index - 1) because schedule says "nextIndex".
+    // So we just run from initialIndex.
+
+    for (let i = initialIndex; i < actions.length; i++) {
+        const action = actions[i];
+
+        if (action.delayMs > 0) {
+            // Found a delay -> Pause & Schedule
+            console.log(`[Engine] Paused run ${runId} at action ${i} for ${action.delayMs}ms`);
+
+            await saveAndScheduleExecution({
+                executionId: runId,
+                pageId: page.pageId,
+                psid: contact.psid,
+                ruleId: rule.id,
+                nextIndex: i + 1, // Resume AFTER delay action
+                createdAt: Date.now(),
+                runAt: Date.now() + action.delayMs,
+                refLogId,       // Include refLogId
+                replyToCommentId
+            }, action.delayMs);
+
+            return { status: 'PAUSED' };
+        }
+
+        // Execute Action
+        try {
+            // Only use comment reply on the very first action of the entire sequence
+            // (index 0). If we resume later, we are already in private chat potentially/context established.
+            const useCommentReply = (i === 0 && !!replyToCommentId);
+
+            await sendAction(page, contact, action, refLogId, useCommentReply ? replyToCommentId : undefined);
+        } catch (e: any) {
+            console.error(`[Engine] Action ${i} failed in run ${runId}`, e);
+        }
+    }
+
+    console.log(`[Engine] Run ${runId} completed.`);
+    await clearExecution(runId);
+    return { status: 'DONE' };
+}
+
 async function executeRule(rule: any, page: any, contact: any, refLogId: string, text: string, replyToCommentId?: string) {
     await prisma.ruleExecution.create({
         data: {
@@ -617,19 +679,20 @@ async function executeRule(rule: any, page: any, contact: any, refLogId: string,
         }
     }
 
-    let isFirstAction = true;
-    for (const action of rule.actions) {
-        if (action.delayMs > 0) await new Promise(r => setTimeout(r, action.delayMs));
-
-        try {
-            // If it's the first action of a comment trigger, use comment_id.
-            // subsequent actions (if any) might fail if not 24h open, but Private Reply allows 1 msg.
-            const useCommentReply = isFirstAction && !!replyToCommentId;
-            await sendAction(page, contact, action, refLogId, useCommentReply ? replyToCommentId : undefined);
-        } catch (e: any) {
-            console.error(`Action failed`, e);
-        }
-        isFirstAction = false;
+    // Start Async Execution
+    const executionId = uuidv4();
+    try {
+        await executeActionsUntilDelay(
+            rule,
+            page,
+            contact,
+            0,
+            executionId,
+            refLogId,
+            replyToCommentId
+        );
+    } catch (e) {
+        console.error(`[Engine] Failed to start run ${executionId}`, e);
     }
 }
 
