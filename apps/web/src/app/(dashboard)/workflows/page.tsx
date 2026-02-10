@@ -71,7 +71,7 @@ export default async function AutomationsPage() {
                 <Link href="/workflows/create">
                     <Button className="bg-[#0084FF] hover:bg-[#0070D1] text-white gap-2 shadow-lg shadow-blue-500/20">
                         <Plus className="w-4 h-4" />
-                        Nova Regra
+                        Criar Regra
                     </Button>
                 </Link>
             </div>
