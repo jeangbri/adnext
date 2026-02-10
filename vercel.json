@@ -1,0 +1,12 @@
+{
+    "crons": [
+        {
+            "path": "/api/broadcast/runner",
+            "schedule": "0 0 * * *"
+        },
+        {
+            "path": "/api/messenger/runner-sweep",
+            "schedule": "* * * * *"
+        }
+    ]
+}
