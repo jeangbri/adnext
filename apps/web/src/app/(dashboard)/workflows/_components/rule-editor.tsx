@@ -1140,7 +1140,10 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                             <div className="flex items-start gap-2 px-3 py-2 rounded bg-blue-500/10 border border-blue-500/20">
                                                                 <Info className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
                                                                 <p className="text-[10px] text-blue-300/80 leading-relaxed">
-                                                                    O preview segue o formato escolhido. No Messenger, o formato final pode variar conforme o app/dispositivo.
+                                                                    {fmt === 'PORTRAIT'
+                                                                        ? 'Retrato: a imagem será colocada dentro de um quadrado com fundo branco, aparecendo COMPLETA no Messenger (sem cortes).'
+                                                                        : `O Messenger exibirá o card em formato ${fmt === 'LANDSCAPE' ? 'paisagem (1.91:1)' : 'quadrado (1:1)'}. Ative o recorte para garantir que a imagem se encaixe perfeitamente.`
+                                                                    }
                                                                 </p>
                                                             </div>
 
@@ -1156,8 +1159,13 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                             <div className="flex items-center gap-3 p-3 rounded-lg bg-black/20 border border-zinc-800/50">
                                                                 <Crop className="w-4 h-4 text-zinc-400 shrink-0" />
                                                                 <div className="flex-1 min-w-0">
-                                                                    <Label className="text-xs text-zinc-300 font-medium">Recorte Automático</Label>
-                                                                    <p className="text-[10px] text-zinc-500 mt-0.5">Gera imagem recortada para o formato antes de enviar</p>
+                                                                    <Label className="text-xs text-zinc-300 font-medium">{fmt === 'PORTRAIT' ? 'Ajuste Automático' : 'Recorte Automático'}</Label>
+                                                                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                                                                        {fmt === 'PORTRAIT'
+                                                                            ? 'Encaixa a imagem inteira em um quadrado com fundo branco — sem cortes'
+                                                                            : `Recorta a imagem para ${fmtConfig.idealLabel} antes de enviar`
+                                                                        }
+                                                                    </p>
                                                                 </div>
                                                                 <Switch
                                                                     checked={action.payload.cropMode === 'AUTO_CENTER_CROP'}

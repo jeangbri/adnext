@@ -824,6 +824,13 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
                 ? payload.derivedImageUrl
                 : payload.imageUrl;
 
+            // Map cardFormat to Messenger's image_aspect_ratio
+            // Messenger only supports "square" (1:1) and "horizontal" (1.91:1)
+            // For formats like PORTRAIT that don't have a native match,
+            // the image is FIT into a square canvas (via derive), so "square" is used
+            const formatKey = (payload.cardFormat || 'SQUARE') as string;
+            const messengerAspectRatio = formatKey === 'LANDSCAPE' ? 'horizontal' : 'square';
+
             if (isCommentReply) {
                 // Convert to text
                 const buttons = payload.buttons?.map((b: any) => `[${b.title}] ${b.type === 'web_url' ? b.url : ''}`).join('\n');
@@ -834,6 +841,7 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
                         type: "template",
                         payload: {
                             template_type: "generic",
+                            image_aspect_ratio: messengerAspectRatio,
                             elements: [
                                 {
                                     title: payload.title,

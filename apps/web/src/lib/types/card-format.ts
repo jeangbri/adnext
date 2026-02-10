@@ -8,6 +8,14 @@ export interface CardFormatConfig {
     idealWidth: number;
     idealHeight: number;
     idealLabel: string;
+    /** Messenger API image_aspect_ratio: "square" | "horizontal" */
+    messengerRatio: "square" | "horizontal";
+    /**
+     * How to derive the image for this format:
+     * - "crop": center-crop to exact ratio (SQUARE, LANDSCAPE)
+     * - "fit": fit entire image inside a square canvas with background padding (PORTRAIT)
+     */
+    deriveStrategy: "crop" | "fit";
 }
 
 export const CARD_FORMAT_CONFIGS: Record<CardFormat, CardFormatConfig> = {
@@ -17,7 +25,9 @@ export const CARD_FORMAT_CONFIGS: Record<CardFormat, CardFormatConfig> = {
         cssAspectRatio: "1 / 1",
         idealWidth: 1080,
         idealHeight: 1080,
-        idealLabel: "1080×1080 ou 1200×1200",
+        idealLabel: "1080×1080",
+        messengerRatio: "square",
+        deriveStrategy: "crop",
     },
     PORTRAIT: {
         label: "Retrato (4:5)",
@@ -26,6 +36,11 @@ export const CARD_FORMAT_CONFIGS: Record<CardFormat, CardFormatConfig> = {
         idealWidth: 1080,
         idealHeight: 1350,
         idealLabel: "1080×1350",
+        // Messenger doesn't support 4:5 natively.
+        // We use "square" and FIT the 4:5 image inside a 1:1 canvas
+        // so the entire image is visible (with side padding).
+        messengerRatio: "square",
+        deriveStrategy: "fit",
     },
     LANDSCAPE: {
         label: "Paisagem (1.91:1)",
@@ -34,6 +49,8 @@ export const CARD_FORMAT_CONFIGS: Record<CardFormat, CardFormatConfig> = {
         idealWidth: 1200,
         idealHeight: 628,
         idealLabel: "1200×628",
+        messengerRatio: "horizontal",
+        deriveStrategy: "crop",
     },
 };
 
