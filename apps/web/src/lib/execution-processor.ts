@@ -66,7 +66,8 @@ export async function processExecution(executionId: string) {
             state.nextIndex,
             executionId,
             state.refLogId || 'runner',
-            state.replyToCommentId
+            state.replyToCommentId,
+            true // isResuming
         );
         return { status: "SUCCESS" };
     } catch (e: any) {

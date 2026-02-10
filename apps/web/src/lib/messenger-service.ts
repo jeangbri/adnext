@@ -581,20 +581,20 @@ export async function executeActionsUntilDelay(
     initialIndex: number,
     runId: string,
     refLogId: string,
-    replyToCommentId?: string
+    replyToCommentId?: string,
+    isResuming = false // New flag to handle resumption
 ) {
     const actions = rule.actions || [];
 
-    console.log(`[Engine] Executing run ${runId} starting at ${initialIndex}/${actions.length}`);
-
-    // If initialIndex > 0, it means we are resuming. 
-    // We skipped the delay action itself (index - 1) because schedule says "nextIndex".
-    // So we just run from initialIndex.
+    console.log(`[Engine] Executing run ${runId} starting at ${initialIndex}/${actions.length} (Resuming: ${isResuming})`);
 
     for (let i = initialIndex; i < actions.length; i++) {
         const action = actions[i];
 
-        if (action.delayMs > 0) {
+        // Check for delay
+        // If we are resuming at this index (i === initialIndex), we assume the delay is DONE.
+        // If we are processing a subsequent action (i > initialIndex) OR not resuming, we respect the delay.
+        if (action.delayMs > 0 && !(isResuming && i === initialIndex)) {
             // Found a delay -> Pause & Schedule
             console.log(`[Engine] Paused run ${runId} at action ${i} for ${action.delayMs}ms`);
 
@@ -603,10 +603,10 @@ export async function executeActionsUntilDelay(
                 pageId: page.pageId,
                 psid: contact.psid,
                 ruleId: rule.id,
-                nextIndex: i + 1, // Resume AFTER delay action
+                nextIndex: i, // Resume AT THIS action (to execute it), NOT after it
                 createdAt: Date.now(),
                 runAt: Date.now() + action.delayMs,
-                refLogId,       // Include refLogId
+                refLogId,
                 replyToCommentId
             }, action.delayMs);
 
@@ -615,10 +615,8 @@ export async function executeActionsUntilDelay(
 
         // Execute Action
         try {
-            // Only use comment reply on the very first action of the entire sequence
-            // (index 0). If we resume later, we are already in private chat potentially/context established.
+            // Only use comment reply on the very first action of the entire sequence (index 0)
             const useCommentReply = (i === 0 && !!replyToCommentId);
-
             await sendAction(page, contact, action, refLogId, useCommentReply ? replyToCommentId : undefined);
         } catch (e: any) {
             console.error(`[Engine] Action ${i} failed in run ${runId}`, e);
