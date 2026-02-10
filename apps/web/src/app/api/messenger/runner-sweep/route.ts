@@ -18,9 +18,13 @@ export async function GET(req: NextRequest) {
 
     // Allow Bearer token (Vercel Cron) or query param (manual)
     const key = req.nextUrl.searchParams.get("key");
+    const runnerSecret = process.env.RUNNER_SECRET;
+
     const isAuthorized =
         (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-        (cronSecret && key === cronSecret);
+        (cronSecret && key === cronSecret) ||
+        (runnerSecret && authHeader === `Bearer ${runnerSecret}`) ||
+        (runnerSecret && key === runnerSecret);
 
     if (!isAuthorized) {
         return new NextResponse("Unauthorized", { status: 401 });
@@ -53,4 +57,9 @@ export async function GET(req: NextRequest) {
         count: results.length,
         results
     });
+}
+
+// Allow POST for pg_net calls (Supabase cron)
+export async function POST(req: NextRequest) {
+    return GET(req);
 }
