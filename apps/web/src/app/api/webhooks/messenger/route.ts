@@ -57,11 +57,31 @@ export async function POST(req: NextRequest) {
     // Process Event
     try {
         const { processMessengerEvent } = await import("@/lib/messenger-service");
-        // Await to ensure logs are written before lambda freezes, but be mindful of timeouts.
         await processMessengerEvent(payload);
     } catch (e: any) {
         console.error("Processing failed", e);
-        // We still return 200 to Meta to stop retries if it's a code error
+    }
+
+    // Piggyback Sweep: Process any pending delayed executions
+    // This replaces the need for a high-frequency cron job
+    try {
+        const { getDueExecutions } = await import("@/lib/scheduler");
+        const { processExecution } = await import("@/lib/execution-processor");
+
+        const dueIds = await getDueExecutions(10); // Small batch to stay within timeout
+        if (dueIds.length > 0) {
+            console.log(`[Webhook Sweep] Found ${dueIds.length} due executions`);
+            for (const id of dueIds) {
+                try {
+                    await processExecution(id);
+                } catch (e) {
+                    console.error(`[Webhook Sweep] Failed ${id}`, e);
+                }
+            }
+        }
+    } catch (e) {
+        // Non-critical: don't fail the webhook response
+        console.error("[Webhook Sweep] Error", e);
     }
 
     return NextResponse.json({ ok: true });
