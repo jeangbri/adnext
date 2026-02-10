@@ -818,11 +818,16 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
             }
             break;
 
-        case 'GENERIC_TEMPLATE':
+        case 'GENERIC_TEMPLATE': {
+            // Use derived (cropped) image if available, otherwise original
+            const cardImageUrl = (payload.cropMode === 'AUTO_CENTER_CROP' && payload.derivedImageUrl)
+                ? payload.derivedImageUrl
+                : payload.imageUrl;
+
             if (isCommentReply) {
                 // Convert to text
                 const buttons = payload.buttons?.map((b: any) => `[${b.title}] ${b.type === 'web_url' ? b.url : ''}`).join('\n');
-                messageBody.message = { text: `${payload.title}\n${payload.subtitle || ''}\n${payload.imageUrl || ''}\n\n${buttons}` };
+                messageBody.message = { text: `${payload.title}\n${payload.subtitle || ''}\n${cardImageUrl || ''}\n\n${buttons}` };
             } else {
                 messageBody.message = {
                     attachment: {
@@ -833,7 +838,7 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
                                 {
                                     title: payload.title,
                                     subtitle: payload.subtitle,
-                                    image_url: payload.imageUrl,
+                                    image_url: cardImageUrl,
                                     buttons: payload.buttons?.map((b: any) => ({
                                         type: b.type || "web_url",
                                         url: b.type === 'web_url' ? b.url : undefined,
@@ -847,6 +852,7 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
                 };
             }
             break;
+        }
 
 
         case 'IMAGE':

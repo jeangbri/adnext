@@ -12,8 +12,10 @@ import { Badge } from "@/components/ui/badge"
 import {
     Plus, Trash2, Save, ArrowLeft, Image as ImageIcon,
     MessageSquare, Music, MousePointerClick, GripVertical,
-    Loader2, Upload, FileAudio, Link as LinkIcon, RatioIcon
+    Loader2, Upload, FileAudio, Link as LinkIcon, RatioIcon,
+    AlertTriangle, Info, Crop, CheckCircle2
 } from "lucide-react"
+import { CARD_FORMAT_CONFIGS, checkRatioMismatch, type CardFormat } from "@/lib/types/card-format"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -270,7 +272,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             case 'TEXT': return { text: '' } // Legacy
             case 'MESSAGE_WITH_BUTTONS': return { message: '', buttons: [] }
             case 'BUTTON_TEMPLATE': return { text: '', buttons: [] } // Legacy
-            case 'GENERIC_TEMPLATE': return { title: '', subtitle: '', imageUrl: '', buttons: [], cardAspectRatio: 'AUTO' }
+            case 'GENERIC_TEMPLATE': return { title: '', subtitle: '', imageUrl: '', buttons: [], cardFormat: 'SQUARE', cropMode: 'NONE', derivedImageUrl: '' }
             case 'AUDIO': return { url: '' }
             case 'IMAGE': return { url: '' }
             default: return {}
@@ -304,12 +306,58 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
         setActions(newActions)
     }
 
+    // Image dimension warnings per action
+    const [imgWarnings, setImgWarnings] = useState<Record<number, string | null>>({})
+    const [deriving, setDeriving] = useState<Record<number, boolean>>({})
+
+    const checkImageDimensions = async (imageUrl: string, actionIdx: number, cardFormat: CardFormat) => {
+        try {
+            const res = await fetch('/api/card-image/derive', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl })
+            })
+            if (res.ok) {
+                const dims = await res.json()
+                const result = checkRatioMismatch(dims.width, dims.height, cardFormat)
+                if (result.isMismatch) {
+                    setImgWarnings(prev => ({ ...prev, [actionIdx]: `Sua imagem está em ${result.currentRatio}. ${result.recommendation}` }))
+                } else {
+                    setImgWarnings(prev => ({ ...prev, [actionIdx]: null }))
+                }
+            }
+        } catch { /* silent */ }
+    }
+
+    const deriveImage = async (actionIdx: number, imageUrl: string, cardFormat: CardFormat) => {
+        setDeriving(prev => ({ ...prev, [actionIdx]: true }))
+        try {
+            const res = await fetch('/api/card-image/derive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl, cardFormat })
+            })
+            if (res.ok) {
+                const data = await res.json()
+                updateAction(actionIdx, 'payload.derivedImageUrl', data.derivedUrl)
+                toast.success(`Imagem recortada (${CARD_FORMAT_CONFIGS[cardFormat].idealLabel}) com sucesso!`)
+                setImgWarnings(prev => ({ ...prev, [actionIdx]: null }))
+            } else {
+                const err = await res.json()
+                toast.error('Erro ao recortar: ' + (err.error || 'Erro'))
+            }
+        } catch (error: any) {
+            toast.error('Erro ao recortar: ' + error.message)
+        } finally {
+            setDeriving(prev => ({ ...prev, [actionIdx]: false }))
+        }
+    }
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, actionIdx: number, field: string = 'url') => {
         const file = e.target.files?.[0]
         if (!file) return
 
-        // Basic validation
-        if (file.size > 20 * 1024 * 1024) { // 20MB limit
+        if (file.size > 20 * 1024 * 1024) {
             toast.error('Arquivo muito grande (Máx 20MB)')
             return
         }
@@ -335,6 +383,14 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             console.log('Upload success, public URL:', publicUrl)
 
             updateAction(actionIdx, `payload.${field}`, publicUrl)
+            // Clear derived image when new original is uploaded
+            if (field === 'imageUrl') {
+                updateAction(actionIdx, 'payload.derivedImageUrl', '')
+                // Check dimensions against card format
+                const action = actions[actionIdx]
+                const format = (action?.payload?.cardFormat || 'SQUARE') as CardFormat
+                checkImageDimensions(publicUrl, actionIdx, format)
+            }
             toast.success('Arquivo enviado com sucesso!')
         } catch (error: any) {
             console.error('Upload catch error:', error)
@@ -1047,138 +1103,211 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                 {/* Removed old BUTTON_TEMPLATE editor as it is merged into MESSAGE_WITH_BUTTONS */}
 
                                                 {/* GENERIC TEMPLATE (CARD WITH IMAGE) EDITOR */}
-                                                {action.type === 'GENERIC_TEMPLATE' && (
-                                                    <div className="space-y-4">
-                                                        {/* Aspect Ratio Selector */}
-                                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-black/20 border border-zinc-800/50">
-                                                            <RatioIcon className="w-4 h-4 text-zinc-400 shrink-0" />
-                                                            <div className="flex-1 min-w-0">
-                                                                <Label className="text-xs text-zinc-300 font-medium">Formato do Card</Label>
-                                                                <p className="text-[10px] text-zinc-500 mt-0.5">Controla a proporção da imagem no preview</p>
+                                                {action.type === 'GENERIC_TEMPLATE' && (() => {
+                                                    const fmt = (action.payload.cardFormat || 'SQUARE') as CardFormat
+                                                    const fmtConfig = CARD_FORMAT_CONFIGS[fmt] || CARD_FORMAT_CONFIGS.SQUARE
+                                                    return (
+                                                        <div className="space-y-3">
+                                                            {/* Format Selector */}
+                                                            <div className="flex items-center gap-3 p-3 rounded-lg bg-black/20 border border-zinc-800/50">
+                                                                <RatioIcon className="w-4 h-4 text-zinc-400 shrink-0" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <Label className="text-xs text-zinc-300 font-medium">Formato do Card (preview)</Label>
+                                                                    <p className="text-[10px] text-zinc-500 mt-0.5">Tamanho ideal: {fmtConfig.idealLabel}</p>
+                                                                </div>
+                                                                <Select
+                                                                    value={fmt}
+                                                                    onValueChange={v => {
+                                                                        updateAction(idx, 'payload.cardFormat', v)
+                                                                        updateAction(idx, 'payload.derivedImageUrl', '')
+                                                                        if (action.payload.imageUrl) {
+                                                                            checkImageDimensions(action.payload.imageUrl, idx, v as CardFormat)
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger className="w-[200px] h-8 text-xs bg-black/40 border-zinc-700">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="SQUARE">Quadrado (1:1)</SelectItem>
+                                                                        <SelectItem value="PORTRAIT">Retrato (4:5)</SelectItem>
+                                                                        <SelectItem value="LANDSCAPE">Paisagem (1.91:1)</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
                                                             </div>
-                                                            <Select
-                                                                value={action.payload.cardAspectRatio || 'AUTO'}
-                                                                onValueChange={v => updateAction(idx, 'payload.cardAspectRatio', v)}
-                                                            >
-                                                                <SelectTrigger className="w-[180px] h-8 text-xs bg-black/40 border-zinc-700">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="AUTO">Automático</SelectItem>
-                                                                    <SelectItem value="SQUARE_1_1">Quadrado (1:1)</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                        {(action.payload.cardAspectRatio === 'SQUARE_1_1') && (
-                                                            <p className="text-[10px] text-emerald-400/80 bg-emerald-500/10 px-3 py-1.5 rounded border border-emerald-500/20">
-                                                                ✓ Quadrado (1:1) encaixa perfeito em imagens 1080×1080 / 1200×1200. No Messenger, o formato final depende do cliente do Facebook.
-                                                            </p>
-                                                        )}
 
-                                                        <div className="flex flex-col md:flex-row gap-4">
-                                                            {/* Image Upload Area */}
-                                                            <div className="w-full md:w-1/3 shrink-0">
-                                                                <label className="cursor-pointer block">
-                                                                    <div
-                                                                        className="rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 flex flex-col items-center justify-center overflow-hidden relative"
-                                                                        style={{
-                                                                            aspectRatio: action.payload.cardAspectRatio === 'SQUARE_1_1' ? '1 / 1' : undefined,
-                                                                            minHeight: action.payload.cardAspectRatio === 'SQUARE_1_1' ? undefined : '140px',
-                                                                        }}
+                                                            {/* Fixed disclaimer */}
+                                                            <div className="flex items-start gap-2 px-3 py-2 rounded bg-blue-500/10 border border-blue-500/20">
+                                                                <Info className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
+                                                                <p className="text-[10px] text-blue-300/80 leading-relaxed">
+                                                                    O preview segue o formato escolhido. No Messenger, o formato final pode variar conforme o app/dispositivo.
+                                                                </p>
+                                                            </div>
+
+                                                            {/* Dimension mismatch warning */}
+                                                            {imgWarnings[idx] && (
+                                                                <div className="flex items-start gap-2 px-3 py-2 rounded bg-amber-500/10 border border-amber-500/20">
+                                                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                                                                    <p className="text-[10px] text-amber-300/80">{imgWarnings[idx]}</p>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Crop Mode Toggle */}
+                                                            <div className="flex items-center gap-3 p-3 rounded-lg bg-black/20 border border-zinc-800/50">
+                                                                <Crop className="w-4 h-4 text-zinc-400 shrink-0" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <Label className="text-xs text-zinc-300 font-medium">Recorte Automático</Label>
+                                                                    <p className="text-[10px] text-zinc-500 mt-0.5">Gera imagem recortada para o formato antes de enviar</p>
+                                                                </div>
+                                                                <Switch
+                                                                    checked={action.payload.cropMode === 'AUTO_CENTER_CROP'}
+                                                                    onCheckedChange={(checked) => {
+                                                                        updateAction(idx, 'payload.cropMode', checked ? 'AUTO_CENTER_CROP' : 'NONE')
+                                                                        if (!checked) {
+                                                                            updateAction(idx, 'payload.derivedImageUrl', '')
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            {/* Auto-derive button */}
+                                                            {action.payload.cropMode === 'AUTO_CENTER_CROP' && action.payload.imageUrl && !action.payload.derivedImageUrl && (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="w-full h-8 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                                                                    onClick={() => deriveImage(idx, action.payload.imageUrl, fmt)}
+                                                                    disabled={deriving[idx]}
+                                                                >
+                                                                    {deriving[idx] ? (
+                                                                        <><Loader2 className="w-3 h-3 mr-2 animate-spin" /> Recortando...</>
+                                                                    ) : (
+                                                                        <><Crop className="w-3 h-3 mr-2" /> Gerar Imagem Recortada ({fmtConfig.idealLabel})</>
+                                                                    )}
+                                                                </Button>
+                                                            )}
+
+                                                            {action.payload.derivedImageUrl && (
+                                                                <div className="flex items-center gap-2 px-3 py-2 rounded bg-emerald-500/10 border border-emerald-500/20">
+                                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                                                    <p className="text-[10px] text-emerald-300/80 flex-1">
+                                                                        Imagem recortada salva ({fmtConfig.idealLabel}). Será usada ao enviar.
+                                                                    </p>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-5 text-[9px] text-zinc-400 hover:text-red-400 px-2"
+                                                                        onClick={() => updateAction(idx, 'payload.derivedImageUrl', '')}
                                                                     >
-                                                                        {action.payload.imageUrl ? (
-                                                                            // eslint-disable-next-line @next/next/no-img-element
-                                                                            <img
-                                                                                src={action.payload.imageUrl}
-                                                                                alt="Card Cover"
-                                                                                className="absolute inset-0 w-full h-full object-cover"
-                                                                                style={{ objectPosition: 'center' }}
-                                                                            />
-                                                                        ) : (
-                                                                            <div className="text-center p-4">
-                                                                                {uploading[idx] ? <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-zinc-500" /> : <ImageIcon className="w-6 h-6 mx-auto mb-2 text-zinc-500" />}
-                                                                                <span className="text-[10px] text-zinc-400 block">Capa do Card</span>
-                                                                                {action.payload.cardAspectRatio === 'SQUARE_1_1' && (
-                                                                                    <span className="text-[9px] text-zinc-500 block mt-1">1:1 Quadrado</span>
-                                                                                )}
+                                                                        Remover
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="flex flex-col md:flex-row gap-4">
+                                                                {/* Image Upload Area with aspect ratio preview */}
+                                                                <div className="w-full md:w-1/3 shrink-0">
+                                                                    <label className="cursor-pointer block">
+                                                                        <div
+                                                                            className="rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 flex flex-col items-center justify-center overflow-hidden relative"
+                                                                            style={{ aspectRatio: fmtConfig.cssAspectRatio }}
+                                                                        >
+                                                                            {action.payload.imageUrl ? (
+                                                                                // eslint-disable-next-line @next/next/no-img-element
+                                                                                <img
+                                                                                    src={action.payload.derivedImageUrl || action.payload.imageUrl}
+                                                                                    alt="Card Cover"
+                                                                                    className="absolute inset-0 w-full h-full object-cover"
+                                                                                    style={{ objectPosition: 'center' }}
+                                                                                />
+                                                                            ) : (
+                                                                                <div className="text-center p-4">
+                                                                                    {uploading[idx] ? <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-zinc-500" /> : <ImageIcon className="w-6 h-6 mx-auto mb-2 text-zinc-500" />}
+                                                                                    <span className="text-[10px] text-zinc-400 block">Capa do Card</span>
+                                                                                    <span className="text-[9px] text-zinc-500 block mt-1">{fmtConfig.label}</span>
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                                <Upload className="w-6 h-6 text-white" />
                                                                             </div>
-                                                                        )}
-                                                                        <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                            <Upload className="w-6 h-6 text-white" />
+                                                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
                                                                         </div>
-                                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
-                                                                    </div>
-                                                                </label>
-                                                            </div>
-
-                                                            <div className="flex-1 space-y-3">
-                                                                <div className="space-y-1">
-                                                                    <Label className="text-xs text-zinc-400">Título</Label>
-                                                                    <Input
-                                                                        className="h-8 bg-black/40 border-zinc-800"
-                                                                        value={action.payload.title || ''}
-                                                                        onChange={e => updateAction(idx, 'payload.title', e.target.value)}
-                                                                        placeholder="Título do Produto/Card"
-                                                                    />
-                                                                </div>
-                                                                <div className="space-y-1">
-                                                                    <Label className="text-xs text-zinc-400">Subtítulo</Label>
-                                                                    <Input
-                                                                        className="h-8 bg-black/40 border-zinc-800"
-                                                                        value={action.payload.subtitle || ''}
-                                                                        onChange={e => updateAction(idx, 'payload.subtitle', e.target.value)}
-                                                                        placeholder="Breve descrição..."
-                                                                    />
+                                                                    </label>
+                                                                    {/* Safe area recommendation */}
+                                                                    <p className="text-[9px] text-zinc-600 mt-1 text-center">
+                                                                        Safe area: margem interna 8-12% do tamanho
+                                                                    </p>
                                                                 </div>
 
-                                                                <div className="space-y-2 pt-2">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
-                                                                        <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
-                                                                            <Plus className="w-3 h-3 mr-1" /> Add
-                                                                        </Button>
+                                                                <div className="flex-1 space-y-3">
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-xs text-zinc-400">Título</Label>
+                                                                        <Input
+                                                                            className="h-8 bg-black/40 border-zinc-800"
+                                                                            value={action.payload.title || ''}
+                                                                            onChange={e => updateAction(idx, 'payload.title', e.target.value)}
+                                                                            placeholder="Título do Produto/Card"
+                                                                        />
                                                                     </div>
-                                                                    <div className="space-y-2">
-                                                                        {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
-                                                                            <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-center">
-                                                                                <div className="col-span-3">
-                                                                                    <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
-                                                                                        <SelectTrigger className="h-7 text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
-                                                                                        <SelectContent>
-                                                                                            <SelectItem value="web_url">Link</SelectItem>
-                                                                                            <SelectItem value="postback">Postback</SelectItem>
-                                                                                        </SelectContent>
-                                                                                    </Select>
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-xs text-zinc-400">Subtítulo</Label>
+                                                                        <Input
+                                                                            className="h-8 bg-black/40 border-zinc-800"
+                                                                            value={action.payload.subtitle || ''}
+                                                                            onChange={e => updateAction(idx, 'payload.subtitle', e.target.value)}
+                                                                            placeholder="Breve descrição..."
+                                                                        />
+                                                                    </div>
+
+                                                                    <div className="space-y-2 pt-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
+                                                                            <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
+                                                                                <Plus className="w-3 h-3 mr-1" /> Add
+                                                                            </Button>
+                                                                        </div>
+                                                                        <div className="space-y-2">
+                                                                            {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
+                                                                                <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-center">
+                                                                                    <div className="col-span-3">
+                                                                                        <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
+                                                                                            <SelectTrigger className="h-7 text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                <SelectItem value="web_url">Link</SelectItem>
+                                                                                                <SelectItem value="postback">Postback</SelectItem>
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                    </div>
+                                                                                    <div className="col-span-4">
+                                                                                        <Input
+                                                                                            className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                            placeholder="Título"
+                                                                                            value={btn.title}
+                                                                                            onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
+                                                                                        />
+                                                                                    </div>
+                                                                                    <div className="col-span-4">
+                                                                                        <Input
+                                                                                            className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                            placeholder={btn.type === 'web_url' ? 'URL' : 'Payload'}
+                                                                                            value={btn.type === 'web_url' ? btn.url : btn.payload}
+                                                                                            onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
+                                                                                        />
+                                                                                    </div>
+                                                                                    <div className="col-span-1 flex justify-end">
+                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
+                                                                                            <Trash2 className="w-3 h-3" />
+                                                                                        </Button>
+                                                                                    </div>
                                                                                 </div>
-                                                                                <div className="col-span-4">
-                                                                                    <Input
-                                                                                        className="h-7 text-[10px] bg-black/40 border-zinc-700"
-                                                                                        placeholder="Título"
-                                                                                        value={btn.title}
-                                                                                        onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
-                                                                                    />
-                                                                                </div>
-                                                                                <div className="col-span-4">
-                                                                                    <Input
-                                                                                        className="h-7 text-[10px] bg-black/40 border-zinc-700"
-                                                                                        placeholder={btn.type === 'web_url' ? 'URL' : 'Payload'}
-                                                                                        value={btn.type === 'web_url' ? btn.url : btn.payload}
-                                                                                        onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
-                                                                                    />
-                                                                                </div>
-                                                                                <div className="col-span-1 flex justify-end">
-                                                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
-                                                                                        <Trash2 className="w-3 h-3" />
-                                                                                    </Button>
-                                                                                </div>
-                                                                            </div>
-                                                                        ))}
+                                                                            ))}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )
+                                                })()}
 
                                             </CardContent>
                                         </Card>

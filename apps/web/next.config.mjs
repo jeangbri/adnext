@@ -7,7 +7,7 @@ const nextConfig = {
         ignoreDuringBuilds: true,
     },
     experimental: {
-        serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
+        serverComponentsExternalPackages: ['@prisma/client', 'prisma', 'sharp'],
         outputFileTracingIncludes: {
             '/api/**/*': [
                 './node_modules/.prisma/client/**/*',
