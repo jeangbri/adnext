@@ -476,3 +476,26 @@ model AutomationRunLog {
   message   String
   metaJson  Json?
 }
+
+// ---------------------------------------------------------
+// SCHEDULED EXECUTION (Database-based delay queue)
+// Replaces Redis/QStash for action delays in automations
+// ---------------------------------------------------------
+model ScheduledExecution {
+  id              String   @id @default(uuid())
+  pageId          String
+  psid            String
+  ruleId          String
+  nextIndex       Int
+  runAt           DateTime
+  status          String   @default("PENDING") // PENDING, PROCESSING, DONE, FAILED
+  refLogId        String?
+  replyToCommentId String?
+  attempts        Int      @default(0)
+  lastError       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, runAt])
+  @@index([pageId, psid])
+}

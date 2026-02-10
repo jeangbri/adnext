@@ -6,7 +6,7 @@
         },
         {
             "path": "/api/messenger/runner-sweep",
-            "schedule": "* * * * *"
+            "schedule": "*/5 * * * *"
         }
     ]
 }
