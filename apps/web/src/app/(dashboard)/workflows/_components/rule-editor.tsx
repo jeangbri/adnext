@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import {
     Plus, Trash2, Save, ArrowLeft, Image as ImageIcon,
     MessageSquare, Music, MousePointerClick, GripVertical,
-    Loader2, Upload, FileAudio, Link as LinkIcon
+    Loader2, Upload, FileAudio, Link as LinkIcon, RatioIcon
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -270,7 +270,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             case 'TEXT': return { text: '' } // Legacy
             case 'MESSAGE_WITH_BUTTONS': return { message: '', buttons: [] }
             case 'BUTTON_TEMPLATE': return { text: '', buttons: [] } // Legacy
-            case 'GENERIC_TEMPLATE': return { title: '', subtitle: '', imageUrl: '', buttons: [] }
+            case 'GENERIC_TEMPLATE': return { title: '', subtitle: '', imageUrl: '', buttons: [], cardAspectRatio: 'AUTO' }
             case 'AUDIO': return { url: '' }
             case 'IMAGE': return { url: '' }
             default: return {}
@@ -1048,90 +1048,132 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
 
                                                 {/* GENERIC TEMPLATE (CARD WITH IMAGE) EDITOR */}
                                                 {action.type === 'GENERIC_TEMPLATE' && (
-                                                    <div className="flex flex-col md:flex-row gap-4">
-                                                        {/* Image Upload Area */}
-                                                        <div className="w-full md:w-1/3 shrink-0">
-                                                            <label className="cursor-pointer block h-full">
-                                                                <div className="h-full min-h-[140px] rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 flex flex-col items-center justify-center overflow-hidden relative">
-                                                                    {action.payload.imageUrl ? (
-                                                                        // eslint-disable-next-line @next/next/no-img-element
-                                                                        <img src={action.payload.imageUrl} alt="Card Cover" className="absolute inset-0 w-full h-full object-cover" />
-                                                                    ) : (
-                                                                        <div className="text-center p-4">
-                                                                            {uploading[idx] ? <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-zinc-500" /> : <ImageIcon className="w-6 h-6 mx-auto mb-2 text-zinc-500" />}
-                                                                            <span className="text-[10px] text-zinc-400 block">Capa do Card</span>
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                        <Upload className="w-6 h-6 text-white" />
-                                                                    </div>
-                                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
-                                                                </div>
-                                                            </label>
+                                                    <div className="space-y-4">
+                                                        {/* Aspect Ratio Selector */}
+                                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-black/20 border border-zinc-800/50">
+                                                            <RatioIcon className="w-4 h-4 text-zinc-400 shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <Label className="text-xs text-zinc-300 font-medium">Formato do Card</Label>
+                                                                <p className="text-[10px] text-zinc-500 mt-0.5">Controla a proporção da imagem no preview</p>
+                                                            </div>
+                                                            <Select
+                                                                value={action.payload.cardAspectRatio || 'AUTO'}
+                                                                onValueChange={v => updateAction(idx, 'payload.cardAspectRatio', v)}
+                                                            >
+                                                                <SelectTrigger className="w-[180px] h-8 text-xs bg-black/40 border-zinc-700">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="AUTO">Automático</SelectItem>
+                                                                    <SelectItem value="SQUARE_1_1">Quadrado (1:1)</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
                                                         </div>
+                                                        {(action.payload.cardAspectRatio === 'SQUARE_1_1') && (
+                                                            <p className="text-[10px] text-emerald-400/80 bg-emerald-500/10 px-3 py-1.5 rounded border border-emerald-500/20">
+                                                                ✓ Quadrado (1:1) encaixa perfeito em imagens 1080×1080 / 1200×1200. No Messenger, o formato final depende do cliente do Facebook.
+                                                            </p>
+                                                        )}
 
-                                                        <div className="flex-1 space-y-3">
-                                                            <div className="space-y-1">
-                                                                <Label className="text-xs text-zinc-400">Título</Label>
-                                                                <Input
-                                                                    className="h-8 bg-black/40 border-zinc-800"
-                                                                    value={action.payload.title || ''}
-                                                                    onChange={e => updateAction(idx, 'payload.title', e.target.value)}
-                                                                    placeholder="Título do Produto/Card"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <Label className="text-xs text-zinc-400">Subtítulo</Label>
-                                                                <Input
-                                                                    className="h-8 bg-black/40 border-zinc-800"
-                                                                    value={action.payload.subtitle || ''}
-                                                                    onChange={e => updateAction(idx, 'payload.subtitle', e.target.value)}
-                                                                    placeholder="Breve descrição..."
-                                                                />
-                                                            </div>
-
-                                                            <div className="space-y-2 pt-2">
-                                                                <div className="flex items-center justify-between">
-                                                                    <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
-                                                                    <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
-                                                                        <Plus className="w-3 h-3 mr-1" /> Add
-                                                                    </Button>
-                                                                </div>
-                                                                <div className="space-y-2">
-                                                                    {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
-                                                                        <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-center">
-                                                                            <div className="col-span-3">
-                                                                                <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
-                                                                                    <SelectTrigger className="h-7 text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
-                                                                                    <SelectContent>
-                                                                                        <SelectItem value="web_url">Link</SelectItem>
-                                                                                        <SelectItem value="postback">Postback</SelectItem>
-                                                                                    </SelectContent>
-                                                                                </Select>
+                                                        <div className="flex flex-col md:flex-row gap-4">
+                                                            {/* Image Upload Area */}
+                                                            <div className="w-full md:w-1/3 shrink-0">
+                                                                <label className="cursor-pointer block">
+                                                                    <div
+                                                                        className="rounded-lg border-2 border-dashed border-zinc-700 hover:border-primary/50 transition-all bg-black/20 flex flex-col items-center justify-center overflow-hidden relative"
+                                                                        style={{
+                                                                            aspectRatio: action.payload.cardAspectRatio === 'SQUARE_1_1' ? '1 / 1' : undefined,
+                                                                            minHeight: action.payload.cardAspectRatio === 'SQUARE_1_1' ? undefined : '140px',
+                                                                        }}
+                                                                    >
+                                                                        {action.payload.imageUrl ? (
+                                                                            // eslint-disable-next-line @next/next/no-img-element
+                                                                            <img
+                                                                                src={action.payload.imageUrl}
+                                                                                alt="Card Cover"
+                                                                                className="absolute inset-0 w-full h-full object-cover"
+                                                                                style={{ objectPosition: 'center' }}
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="text-center p-4">
+                                                                                {uploading[idx] ? <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-zinc-500" /> : <ImageIcon className="w-6 h-6 mx-auto mb-2 text-zinc-500" />}
+                                                                                <span className="text-[10px] text-zinc-400 block">Capa do Card</span>
+                                                                                {action.payload.cardAspectRatio === 'SQUARE_1_1' && (
+                                                                                    <span className="text-[9px] text-zinc-500 block mt-1">1:1 Quadrado</span>
+                                                                                )}
                                                                             </div>
-                                                                            <div className="col-span-4">
-                                                                                <Input
-                                                                                    className="h-7 text-[10px] bg-black/40 border-zinc-700"
-                                                                                    placeholder="Título"
-                                                                                    value={btn.title}
-                                                                                    onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
-                                                                                />
-                                                                            </div>
-                                                                            <div className="col-span-4">
-                                                                                <Input
-                                                                                    className="h-7 text-[10px] bg-black/40 border-zinc-700"
-                                                                                    placeholder={btn.type === 'web_url' ? 'URL' : 'Payload'}
-                                                                                    value={btn.type === 'web_url' ? btn.url : btn.payload}
-                                                                                    onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
-                                                                                />
-                                                                            </div>
-                                                                            <div className="col-span-1 flex justify-end">
-                                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
-                                                                                    <Trash2 className="w-3 h-3" />
-                                                                                </Button>
-                                                                            </div>
+                                                                        )}
+                                                                        <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                            <Upload className="w-6 h-6 text-white" />
                                                                         </div>
-                                                                    ))}
+                                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
+                                                                    </div>
+                                                                </label>
+                                                            </div>
+
+                                                            <div className="flex-1 space-y-3">
+                                                                <div className="space-y-1">
+                                                                    <Label className="text-xs text-zinc-400">Título</Label>
+                                                                    <Input
+                                                                        className="h-8 bg-black/40 border-zinc-800"
+                                                                        value={action.payload.title || ''}
+                                                                        onChange={e => updateAction(idx, 'payload.title', e.target.value)}
+                                                                        placeholder="Título do Produto/Card"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <Label className="text-xs text-zinc-400">Subtítulo</Label>
+                                                                    <Input
+                                                                        className="h-8 bg-black/40 border-zinc-800"
+                                                                        value={action.payload.subtitle || ''}
+                                                                        onChange={e => updateAction(idx, 'payload.subtitle', e.target.value)}
+                                                                        placeholder="Breve descrição..."
+                                                                    />
+                                                                </div>
+
+                                                                <div className="space-y-2 pt-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <Label className="text-xs text-zinc-400">Botões (Max 3)</Label>
+                                                                        <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => addButtonToPayload(idx)} disabled={(action.payload.buttons?.length || 0) >= 3}>
+                                                                            <Plus className="w-3 h-3 mr-1" /> Add
+                                                                        </Button>
+                                                                    </div>
+                                                                    <div className="space-y-2">
+                                                                        {(action.payload.buttons || []).map((btn: any, btnIndex: number) => (
+                                                                            <div key={btnIndex} className="grid grid-cols-12 gap-2 bg-black/20 p-2 rounded border border-zinc-800 items-center">
+                                                                                <div className="col-span-3">
+                                                                                    <Select value={btn.type} onValueChange={v => updateButton(idx, btnIndex, 'type', v)}>
+                                                                                        <SelectTrigger className="h-7 text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
+                                                                                        <SelectContent>
+                                                                                            <SelectItem value="web_url">Link</SelectItem>
+                                                                                            <SelectItem value="postback">Postback</SelectItem>
+                                                                                        </SelectContent>
+                                                                                    </Select>
+                                                                                </div>
+                                                                                <div className="col-span-4">
+                                                                                    <Input
+                                                                                        className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                        placeholder="Título"
+                                                                                        value={btn.title}
+                                                                                        onChange={e => updateButton(idx, btnIndex, 'title', e.target.value)}
+                                                                                    />
+                                                                                </div>
+                                                                                <div className="col-span-4">
+                                                                                    <Input
+                                                                                        className="h-7 text-[10px] bg-black/40 border-zinc-700"
+                                                                                        placeholder={btn.type === 'web_url' ? 'URL' : 'Payload'}
+                                                                                        value={btn.type === 'web_url' ? btn.url : btn.payload}
+                                                                                        onChange={e => updateButton(idx, btnIndex, btn.type === 'web_url' ? 'url' : 'payload', e.target.value)}
+                                                                                    />
+                                                                                </div>
+                                                                                <div className="col-span-1 flex justify-end">
+                                                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-red-400" onClick={() => removeButton(idx, btnIndex)}>
+                                                                                        <Trash2 className="w-3 h-3" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
