@@ -1,95 +1,43 @@
-import { prisma } from "@/lib/prisma"
-import { getPrimaryWorkspace } from "@/lib/workspace"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+"use client"
+
+import { useEffect, useState, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
-import { getScopedContext } from "@/lib/user-scope"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export const dynamic = "force-dynamic";
+type LogEntry = {
+    id: string
+    type: string
+    direction: string
+    source: string
+    content: string
+    status: string
+    error: string | null
+    createdAt: string
+    pageName: string
+    contactName: string
+}
 
-export default async function LogsPage({ searchParams }: { searchParams: { status?: string, pageId?: string } }) {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect('/entrar')
+export default function LogsPage() {
+    const [logs, setLogs] = useState<LogEntry[]>([])
+    const [loading, setLoading] = useState(true)
 
-    // Parallel: workspace + scope
-    const [workspace, scope] = await Promise.all([
-        getPrimaryWorkspace(user.id, user.email || ''),
-        getScopedContext(user.id)
-    ])
-
-    // Determine Page Filter
-    let targetPageIds: string[] = [];
-
-    if (searchParams.pageId && searchParams.pageId !== 'ALL') {
-        targetPageIds = [searchParams.pageId];
-    } else if (scope?.pageIds && scope.pageIds.length > 0) {
-        targetPageIds = scope.pageIds;
-    }
-
-    const contextFilter = (targetPageIds.length > 0)
-        ? { pageId: { in: targetPageIds } }
-        : { page: { workspaceId: workspace.id } };
-
-    const whereLog: any = {
-        page: { workspaceId: workspace.id },
-        ...contextFilter
-    }
-    const whereComment: any = {
-        page: { workspaceId: workspace.id },
-        ...contextFilter
-    }
-
-    if (searchParams.status && searchParams.status !== 'ALL') {
-        whereLog.status = searchParams.status;
-    }
-
-    // Parallel Fetch
-    const [messageLogs, commentEvents] = await Promise.all([
-        prisma.messageLog.findMany({
-            where: whereLog,
-            orderBy: { createdAt: 'desc' },
-            take: 50,
-            include: {
-                contact: { select: { firstName: true, psid: true } },
-                page: { select: { pageName: true } }
+    const fetchLogs = useCallback(async () => {
+        try {
+            const res = await fetch('/api/logs')
+            if (res.ok) {
+                const data = await res.json()
+                setLogs(data)
             }
-        }),
-        (!searchParams.status || searchParams.status === 'ALL') ? prisma.commentEvent.findMany({
-            where: whereComment,
-            orderBy: { createdAt: 'desc' },
-            take: 50,
-            include: { page: { select: { pageName: true } } }
-        }) : []
-    ]);
+        } catch (e) {
+            console.error("Failed to load logs", e)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
 
-    // Unify & Sort
-    const unifiedLogs = [
-        ...messageLogs.map((l: any) => ({
-            id: l.id,
-            type: 'MESSAGE',
-            direction: l.direction,
-            source: l.actionType ? 'AUTOMATION' : 'WEBHOOK',
-            content: l.incomingText || (l.actionType ? `Envio: ${l.actionType}` : '-'),
-            status: l.status,
-            error: l.error,
-            createdAt: l.createdAt,
-            pageName: l.page.pageName,
-            contactName: l.contact?.firstName || l.contact?.psid || 'Desconhecido',
-        })),
-        ...commentEvents.map((c: any) => ({
-            id: c.id,
-            type: 'COMMENT',
-            direction: 'IN',
-            source: 'WEBHOOK_FEED',
-            content: c.message || '[Sem texto]',
-            status: 'RECEIVED',
-            error: null,
-            createdAt: c.createdAt,
-            pageName: c.page.pageName,
-            contactName: c.fromUserId || 'Usuário Facebook',
-        }))
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
+    useEffect(() => {
+        fetchLogs()
+    }, [fetchLogs])
 
     return (
         <div className="space-y-6">
@@ -113,48 +61,59 @@ export default async function LogsPage({ searchParams }: { searchParams: { statu
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-zinc-300">
-                        {unifiedLogs.map((log) => (
-                            <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap text-xs text-zinc-400">
-                                    {new Date(log.createdAt).toLocaleString('pt-BR')}
-                                </td>
-                                <td className="px-6 py-4 text-xs">
-                                    {log.pageName}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex flex-col">
+                        {loading ? (
+                            Array.from({ length: 6 }).map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-6 py-4"><Skeleton className="h-3 w-28 bg-zinc-800" /></td>
+                                    <td className="px-6 py-4"><Skeleton className="h-3 w-20 bg-zinc-800" /></td>
+                                    <td className="px-6 py-4"><Skeleton className="h-3 w-24 bg-zinc-800" /></td>
+                                    <td className="px-6 py-4"><Skeleton className="h-5 w-24 rounded-full bg-zinc-800" /></td>
+                                    <td className="px-6 py-4"><Skeleton className="h-3 w-40 bg-zinc-800" /></td>
+                                    <td className="px-6 py-4"><Skeleton className="h-5 w-16 rounded-full bg-zinc-800" /></td>
+                                </tr>
+                            ))
+                        ) : (
+                            logs.map((log) => (
+                                <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap text-xs text-zinc-400">
+                                        {new Date(log.createdAt).toLocaleString('pt-BR')}
+                                    </td>
+                                    <td className="px-6 py-4 text-xs">
+                                        {log.pageName}
+                                    </td>
+                                    <td className="px-6 py-4">
                                         <span className="text-sm">{log.contactName}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <Badge variant="outline" className={`
-                                        ${log.type === 'COMMENT' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' : ''}
-                                        ${log.type === 'MESSAGE' && log.direction === 'IN' ? 'text-blue-400 bg-blue-400/10 border-blue-400/20' : ''}
-                                        ${log.type === 'MESSAGE' && log.direction === 'OUT' ? 'text-purple-400 bg-purple-400/10 border-purple-400/20' : ''}
-                                    `}>
-                                        {log.type === 'COMMENT' ? 'COMENTÁRIO' : (log.direction === 'IN' ? 'MSG RECEBIDA' : 'MSG ENVIADA')}
-                                    </Badge>
-                                </td>
-                                <td className="px-6 py-4 max-w-xs truncate" title={log.content}>
-                                    {log.content}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex flex-col gap-1">
-                                        <Badge variant="secondary" className={
-                                            log.status === 'ERROR' || log.status === 'FAILED' ? 'bg-red-500/10 text-red-500' :
-                                                log.status === 'MATCHED' || log.status === 'SENT' || log.status === 'RECEIVED' ? 'bg-green-500/10 text-green-500' :
-                                                    'bg-zinc-800 text-zinc-400'
-                                        }>
-                                            {log.status}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <Badge variant="outline" className={`
+                                            ${log.type === 'COMMENT' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' : ''}
+                                            ${log.type === 'MESSAGE' && log.direction === 'IN' ? 'text-blue-400 bg-blue-400/10 border-blue-400/20' : ''}
+                                            ${log.type === 'MESSAGE' && log.direction === 'OUT' ? 'text-purple-400 bg-purple-400/10 border-purple-400/20' : ''}
+                                        `}>
+                                            {log.type === 'COMMENT' ? 'COMENTÁRIO' : (log.direction === 'IN' ? 'MSG RECEBIDA' : 'MSG ENVIADA')}
                                         </Badge>
-                                        {log.error && <span className="text-[10px] text-red-400 max-w-[150px] truncate">{log.error}</span>}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                                    </td>
+                                    <td className="px-6 py-4 max-w-xs truncate" title={log.content}>
+                                        {log.content}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-col gap-1">
+                                            <Badge variant="secondary" className={
+                                                log.status === 'ERROR' || log.status === 'FAILED' ? 'bg-red-500/10 text-red-500' :
+                                                    log.status === 'MATCHED' || log.status === 'SENT' || log.status === 'RECEIVED' ? 'bg-green-500/10 text-green-500' :
+                                                        'bg-zinc-800 text-zinc-400'
+                                            }>
+                                                {log.status}
+                                            </Badge>
+                                            {log.error && <span className="text-[10px] text-red-400 max-w-[150px] truncate">{log.error}</span>}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
-                {unifiedLogs.length === 0 && (
+                {!loading && logs.length === 0 && (
                     <div className="p-12 text-center text-zinc-500">Nenhum log encontrado.</div>
                 )}
             </div>

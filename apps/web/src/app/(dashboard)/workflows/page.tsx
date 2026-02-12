@@ -1,60 +1,33 @@
-import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma"
-import { getPrimaryWorkspace } from "@/lib/workspace"
-import { getScopedContext } from "@/lib/user-scope"
+"use client"
+
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus, Zap, Edit } from "lucide-react"
-import { redirect } from "next/navigation"
 import { DeleteRuleButton } from "./_components/delete-button"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export const dynamic = "force-dynamic";
+export default function AutomationsPage() {
+    const [rules, setRules] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
 
-export default async function AutomationsPage() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect('/entrar')
-
-    // Parallel: workspace + scope
-    const [workspace, scope] = await Promise.all([
-        getPrimaryWorkspace(user.id, user.email || ''),
-        getScopedContext(user.id)
-    ])
-
-    const workspaceId = workspace.id
-
-    // Construct robust filter
-    let whereClause: any = { workspaceId }
-
-    if (scope?.projectId) {
-        if (scope.pageId && scope.pageId !== 'ALL') {
-            whereClause.OR = [
-                { pageId: scope.pageId },
-                { pageIds: { has: scope.pageId } },
-                { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
-            ]
-        } else {
-            const projectPageIds = scope.pageIds || []
-
-            if (projectPageIds.length > 0) {
-                whereClause.OR = [
-                    { pageId: { in: projectPageIds } },
-                    { pageIds: { hasSome: projectPageIds } },
-                    { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
-                ]
-            } else {
-                whereClause.OR = [
-                    { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
-                ]
+    const fetchRules = useCallback(async () => {
+        try {
+            const res = await fetch('/api/automations')
+            if (res.ok) {
+                const data = await res.json()
+                setRules(data)
             }
+        } catch (e) {
+            console.error("Failed to load automations", e)
+        } finally {
+            setLoading(false)
         }
-    }
+    }, [])
 
-    const rules = await prisma.automationRule.findMany({
-        where: whereClause,
-        orderBy: { priority: 'desc' },
-        include: { actions: { select: { id: true } } }
-    })
+    useEffect(() => {
+        fetchRules()
+    }, [fetchRules])
 
     return (
         <div className="space-y-6">
@@ -72,7 +45,32 @@ export default async function AutomationsPage() {
             </div>
 
             <div className="border border-white/10 rounded-lg bg-zinc-950/50 backdrop-blur overflow-hidden">
-                {rules.length === 0 ? (
+                {loading ? (
+                    /* Table skeleton */
+                    <div>
+                        <div className="bg-zinc-900/50 border-b border-white/5 px-6 py-4 flex gap-8">
+                            {["w-20", "w-32", "w-16", "w-12", "w-16", "w-16"].map((w, i) => (
+                                <Skeleton key={i} className={`h-4 ${w} bg-zinc-800`} />
+                            ))}
+                        </div>
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <div key={i} className="px-6 py-4 flex items-center gap-8 border-b border-white/5 last:border-0">
+                                <Skeleton className="h-4 w-28 bg-zinc-800" />
+                                <div className="flex gap-1.5">
+                                    <Skeleton className="h-5 w-14 rounded-full bg-zinc-800" />
+                                    <Skeleton className="h-5 w-18 rounded-full bg-zinc-800" />
+                                </div>
+                                <Skeleton className="h-4 w-8 bg-zinc-800" />
+                                <Skeleton className="h-4 w-16 bg-zinc-800" />
+                                <Skeleton className="h-5 w-14 rounded-full bg-zinc-800" />
+                                <div className="ml-auto flex gap-2">
+                                    <Skeleton className="h-8 w-8 rounded bg-zinc-800" />
+                                    <Skeleton className="h-8 w-8 rounded bg-zinc-800" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : rules.length === 0 ? (
                     <div className="p-12 text-center space-y-4">
                         <div className="mx-auto w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center">
                             <Zap className="w-6 h-6 text-zinc-500" />
@@ -102,26 +100,26 @@ export default async function AutomationsPage() {
                                     </td>
                                     <td className="px-6 py-4 max-w-xs truncate">
                                         <div className="flex flex-col gap-2">
-                                            {(rule as any).triggerType && (rule as any).triggerType !== 'MESSAGE_ANY' && (
+                                            {rule.triggerType && rule.triggerType !== 'MESSAGE_ANY' && (
                                                 <span className={`px-2 py-0.5 w-fit rounded text-[10px] font-bold uppercase
-                                                    ${(rule as any).triggerType === 'COMMENT_ON_POST' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
-                                                        (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'bg-orange-500/20 text-orange-500 border border-orange-500/30' :
+                                                    ${rule.triggerType === 'COMMENT_ON_POST' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
+                                                        rule.triggerType === 'MESSAGE_OUTSIDE_24H' ? 'bg-orange-500/20 text-orange-500 border border-orange-500/30' :
                                                             'bg-zinc-800 text-zinc-400'}
                                                 `}>
-                                                    {(rule as any).triggerType === 'COMMENT_ON_POST' ? 'Comentário' :
-                                                        (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'Reengajamento (>24h)' :
-                                                            (rule as any).triggerType}
+                                                    {rule.triggerType === 'COMMENT_ON_POST' ? 'Comentário' :
+                                                        rule.triggerType === 'MESSAGE_OUTSIDE_24H' ? 'Reengajamento (>24h)' :
+                                                            rule.triggerType}
                                                 </span>
                                             )}
                                             <div className="flex flex-wrap gap-1">
-                                                {rule.keywords.length > 0 ? rule.keywords.slice(0, 3).map((k, i) => (
+                                                {rule.keywords.length > 0 ? rule.keywords.slice(0, 3).map((k: string, i: number) => (
                                                     <span key={i} className="px-2 py-0.5 rounded-full bg-zinc-800 text-xs border border-white/5">
                                                         {k}
                                                     </span>
                                                 )) : (
-                                                    (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ?
+                                                    rule.triggerType === 'MESSAGE_OUTSIDE_24H' ?
                                                         <span className="text-xs text-zinc-500 italic">Qualquer msg</span> :
-                                                        (rule as any).triggerType === 'COMMENT_ON_POST' && (rule as any).triggerConfig?.keywords?.length === 0 ?
+                                                        rule.triggerType === 'COMMENT_ON_POST' && rule.triggerConfig?.keywords?.length === 0 ?
                                                             <span className="text-xs text-zinc-500 italic">Qualquer comentário</span> :
                                                             <span className="text-xs text-zinc-600">-</span>
                                                 )}
@@ -135,7 +133,7 @@ export default async function AutomationsPage() {
                                         {rule.priority}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {rule.actions.length} ações
+                                        {rule.actions?.length ?? 0} ações
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${rule.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
