@@ -3,21 +3,22 @@ import { getPrimaryWorkspace } from "@/lib/workspace"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { getScopedContext } from "@/lib/user-scope"
 
 export const dynamic = "force-dynamic";
-
-import { getScopedContext } from "@/lib/user-scope"
 
 export default async function LogsPage({ searchParams }: { searchParams: { status?: string, pageId?: string } }) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect('/entrar')
 
-    const workspace = await getPrimaryWorkspace(user.id, user.email || '')
-    const scope = await getScopedContext();
+    // Parallel: workspace + scope
+    const [workspace, scope] = await Promise.all([
+        getPrimaryWorkspace(user.id, user.email || ''),
+        getScopedContext(user.id)
+    ])
 
     // Determine Page Filter
-    // Priority: SearchParams > Context > All in Workspace
     let targetPageIds: string[] = [];
 
     if (searchParams.pageId && searchParams.pageId !== 'ALL') {
@@ -26,19 +27,12 @@ export default async function LogsPage({ searchParams }: { searchParams: { statu
         targetPageIds = scope.pageIds;
     }
 
-    // If no specific pages found in scope (e.g. no project selected), fall back to workspace pages? 
-    // Or strictly follow context? 
-    // If scope.pageId == 'ALL' or null, scope.pageIds contains all pages in project.
-    // If no project selected, scope might be empty. In that case, show workspace wide?
-    // Let's default to workspace-wide if scope is empty/null, otherwise restrict to scope.
-
     const contextFilter = (targetPageIds.length > 0)
         ? { pageId: { in: targetPageIds } }
-        : { page: { workspaceId: workspace.id } }; // Fallback to all in workspace
+        : { page: { workspaceId: workspace.id } };
 
-    // Logs Filter
     const whereLog: any = {
-        page: { workspaceId: workspace.id }, // Security barrier
+        page: { workspaceId: workspace.id },
         ...contextFilter
     }
     const whereComment: any = {
@@ -48,10 +42,6 @@ export default async function LogsPage({ searchParams }: { searchParams: { statu
 
     if (searchParams.status && searchParams.status !== 'ALL') {
         whereLog.status = searchParams.status;
-        // CommentEvents don't have status, so if status filter is on, maybe we don't show comments?
-        // Or we show them only if status is RECEIVED (implicit)?
-        // For now, if status is specified, we exclude CommentEvents unless we map them.
-        // Let's exclude comments if status filter is active to keep it simple.
     }
 
     // Parallel Fetch
@@ -60,13 +50,16 @@ export default async function LogsPage({ searchParams }: { searchParams: { statu
             where: whereLog,
             orderBy: { createdAt: 'desc' },
             take: 50,
-            include: { contact: true, page: true }
+            include: {
+                contact: { select: { firstName: true, psid: true } },
+                page: { select: { pageName: true } }
+            }
         }),
         (!searchParams.status || searchParams.status === 'ALL') ? prisma.commentEvent.findMany({
             where: whereComment,
             orderBy: { createdAt: 'desc' },
             take: 50,
-            include: { page: true }
+            include: { page: { select: { pageName: true } } }
         }) : []
     ]);
 
@@ -76,14 +69,13 @@ export default async function LogsPage({ searchParams }: { searchParams: { statu
             id: l.id,
             type: 'MESSAGE',
             direction: l.direction,
-            source: l.actionType ? 'AUTOMATION' : 'WEBHOOK', // simplified
+            source: l.actionType ? 'AUTOMATION' : 'WEBHOOK',
             content: l.incomingText || (l.actionType ? `Envio: ${l.actionType}` : '-'),
             status: l.status,
             error: l.error,
             createdAt: l.createdAt,
             pageName: l.page.pageName,
             contactName: l.contact?.firstName || l.contact?.psid || 'Desconhecido',
-            raw: l
         })),
         ...commentEvents.map((c: any) => ({
             id: c.id,
@@ -96,7 +88,6 @@ export default async function LogsPage({ searchParams }: { searchParams: { statu
             createdAt: c.createdAt,
             pageName: c.page.pageName,
             contactName: c.fromUserId || 'Usuário Facebook',
-            raw: c
         }))
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
 

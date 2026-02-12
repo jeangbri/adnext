@@ -1,20 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPrimaryWorkspace } from "@/lib/workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Activity, MessageSquare, ArrowUpRight } from "lucide-react";
+import { Zap, Activity, MessageSquare } from "lucide-react";
 import { ServerConfigError } from "@/components/ServerConfigError";
 import { getDashboardStats } from "@/lib/dashboard-service";
 import { ExecutionsChart } from "./_components/executions-chart";
 import { LeadsFunnel } from "./_components/leads-funnel";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
 import { DashboardFilter } from "./_components/dashboard-filter";
+import { getScopedContext } from "@/lib/user-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-import { getScopedContext } from "@/lib/user-scope";
 
 export default async function DashboardPage({ searchParams }: { searchParams: { pageId?: string } }) {
     try {
@@ -23,32 +21,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
         if (!user) return <div>Não autorizado</div>;
 
-        const workspace = await getPrimaryWorkspace(user.id, user.email || '');
-
-        // Scope Logic
-        const scope = await getScopedContext();
-
-        // If scope.pageId is 'ALL', we might want to pass undefined to getDashboardStats 
-        // BUT we need to filter by scope.pageIds (the project pages) to avoid showing pages from other projects.
-        // The getDashboardStats needs update to support a list of pageIds.
-
-        // Quick fix: if ALL, we pass nothing for now (shows workspace wide), 
-        // but we should Ideally filter by project.
-        // Let's rely on the fact that for now user only sees their own workspace data.
-        // Improvement: Pass scope.pageIds to stats service.
-
-        // Logic:
-        // 1. If URL param pageId exists, use it (highest priority, but check if within scope for safety ideally)
-        // 2. If scope.pageId is specific, use it
-        // 3. If scope.pageId is ALL, use scope.pageIds (all project pages)
-
-        // Scope.pageId can be 'ALL' or a specific ID or null.
-        // User might force pageId via URL param.
+        // Parallel fetch: workspace + scope (pass userId to avoid duplicate getUser)
+        const [workspace, scope] = await Promise.all([
+            getPrimaryWorkspace(user.id, user.email || ''),
+            getScopedContext(user.id)
+        ]);
 
         let targetPageId = searchParams.pageId || (scope?.pageId === 'ALL' ? undefined : (scope?.pageId ?? undefined));
 
-        // If targetPageId is undefined (meaning ALL or no specific page selected), 
-        // we provide the list of project pages to filter by.
         const targetPageIds = (!targetPageId && scope?.pageIds && scope.pageIds.length > 0)
             ? scope.pageIds
             : undefined;

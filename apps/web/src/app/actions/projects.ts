@@ -9,15 +9,6 @@ export async function getProjects() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return []
 
-    // Ensure User exists in Prisma (sync check)
-    const dbUser = await prisma.user.findUnique({ where: { id: user.id } })
-    if (!dbUser && user.email) {
-        // Auto-create user if missing (failsafe)
-        await prisma.user.create({
-            data: { id: user.id, email: user.email }
-        }).catch(() => { }) // Ignore if race condition
-    }
-
     return await prisma.project.findMany({
         where: { userId: user.id },
         include: {

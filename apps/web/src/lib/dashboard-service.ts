@@ -31,12 +31,10 @@ export type DashboardStats = {
 };
 
 export async function getDashboardStats(workspaceId: string, pageId?: string, pageIds?: string[]): Promise<DashboardStats> {
-    // Helper filter for Page ID
     const pageFilter = pageId
         ? { pageId }
         : (pageIds && pageIds.length > 0 ? { pageId: { in: pageIds } } : {});
 
-    // NEW: Direct column filters (much faster)
     const directPageFilter = pageId
         ? { pageId }
         : (pageIds && pageIds.length > 0 ? { pageId: { in: pageIds } } : {});
@@ -45,53 +43,116 @@ export async function getDashboardStats(workspaceId: string, pageId?: string, pa
         ? { OR: [{ pageIds: { has: pageId } }, { pageIds: { equals: [] } }] }
         : (pageIds && pageIds.length > 0 ? { OR: [{ pageIds: { hasSome: pageIds } }, { pageIds: { equals: [] } }] } : {});
 
-    // 1. Counts
-    const activeRules = await prisma.automationRule.count({
-        where: {
-            workspaceId,
-            isActive: true,
-            ...rulePageFilter
-        }
-    });
+    // Pre-calculate all date boundaries
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fifteenMinsAgo = new Date(now.getTime() - 15 * 60 * 1000);
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const totalExecutions = await prisma.ruleExecution.count({
-        where: {
-            rule: { workspaceId },
-            ...directPageFilter
-        }
-    });
+    // Run ALL queries in parallel
+    const [
+        activeRules,
+        totalExecutions,
+        messagesSent,
+        recentLogs,
+        recentExecutions,
+        sentMessagesLast7Days,
+        totalLeads,
+        newLeadsToday,
+        activeNow,
+        active24h,
+        active7d,
+        active30d,
+        totalCampaigns,
+        broadcastSentCount
+    ] = await Promise.all([
+        // 1. Active rules count
+        prisma.automationRule.count({
+            where: { workspaceId, isActive: true, ...rulePageFilter }
+        }),
 
-    const messagesSent = await prisma.messageLog.count({
-        where: {
-            page: { workspaceId },
-            direction: 'OUT',
-            status: 'SENT',
-            ...pageFilter
-        }
-    });
+        // 2. Total executions count
+        prisma.ruleExecution.count({
+            where: { rule: { workspaceId }, ...directPageFilter }
+        }),
 
-    // 2. Recent Activity
-    const recentLogs = await prisma.messageLog.findMany({
-        where: {
-            page: { workspaceId },
-            ...pageFilter
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        include: { contact: true }
-    });
+        // 3. Messages sent count
+        prisma.messageLog.count({
+            where: { page: { workspaceId }, direction: 'OUT', status: 'SENT', ...pageFilter }
+        }),
 
-    const recentExecutions = await prisma.ruleExecution.findMany({
-        where: {
-            rule: { workspaceId },
-            ...directPageFilter
-        },
-        orderBy: { lastExecutedAt: 'desc' },
-        take: 5,
-        include: { rule: true, contact: true }
-    });
+        // 4. Recent message logs
+        prisma.messageLog.findMany({
+            where: { page: { workspaceId }, ...pageFilter },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: { contact: true }
+        }),
 
-    // Merge and sort
+        // 5. Recent executions
+        prisma.ruleExecution.findMany({
+            where: { rule: { workspaceId }, ...directPageFilter },
+            orderBy: { lastExecutedAt: 'desc' },
+            take: 5,
+            include: { rule: true, contact: true }
+        }),
+
+        // 6. Chart data (sent messages last 7 days)
+        prisma.messageLog.findMany({
+            where: {
+                page: { workspaceId },
+                direction: 'OUT',
+                status: 'SENT',
+                ...pageFilter,
+                createdAt: { gte: sevenDaysAgo }
+            },
+            select: { createdAt: true }
+        }),
+
+        // 7. Total leads
+        prisma.contact.count({
+            where: { workspaceId, ...directPageFilter }
+        }),
+
+        // 8. New leads today
+        prisma.contact.count({
+            where: { workspaceId, firstSeenAt: { gte: startOfDay }, ...directPageFilter }
+        }),
+
+        // 9. Active now (15 min)
+        prisma.contact.count({
+            where: { workspaceId, lastSeenAt: { gte: fifteenMinsAgo }, ...directPageFilter }
+        }),
+
+        // 10. Active 24h
+        prisma.contact.count({
+            where: { workspaceId, lastSeenAt: { gte: twentyFourHoursAgo }, ...directPageFilter }
+        }),
+
+        // 11. Active 7d
+        prisma.contact.count({
+            where: { workspaceId, lastSeenAt: { gte: sevenDaysAgo }, ...directPageFilter }
+        }),
+
+        // 12. Active 30d
+        prisma.contact.count({
+            where: { workspaceId, lastSeenAt: { gte: thirtyDaysAgo }, ...directPageFilter }
+        }),
+
+        // 13. Total campaigns
+        prisma.broadcastCampaign.count({
+            where: { workspaceId, ...directPageFilter }
+        }),
+
+        // 14. Broadcast sent count
+        prisma.broadcastRecipient.count({
+            where: { workspaceId, status: 'SENT', ...directPageFilter }
+        })
+    ]);
+
+    // Process recent activity (merge+sort)
     const activity = [
         ...recentLogs.map(log => ({
             id: log.id,
@@ -111,22 +172,7 @@ export async function getDashboardStats(workspaceId: string, pageId?: string, pa
         }))
     ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 5);
 
-    // 3. Chart Data (Total Sent Messages: Automation + Broadcast)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const sentMessagesLast7Days = await prisma.messageLog.findMany({
-        where: {
-            page: { workspaceId },
-            direction: 'OUT',
-            status: 'SENT',
-            ...pageFilter,
-            createdAt: { gte: sevenDaysAgo }
-        },
-        select: { createdAt: true }
-    });
-
-    // Group by day
+    // Process chart data
     const chartMap = new Map<string, number>();
     for (let i = 0; i < 7; i++) {
         const d = new Date();
@@ -143,50 +189,6 @@ export async function getDashboardStats(workspaceId: string, pageId?: string, pa
     const chartData = Array.from(chartMap.entries())
         .map(([date, count]) => ({ date, count }))
         .reverse();
-
-    // 4. Lead Stats
-    const totalLeads = await prisma.contact.count({
-        where: {
-            workspaceId,
-            ...directPageFilter
-        }
-    });
-
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    const newLeadsToday = await prisma.contact.count({
-        where: {
-            workspaceId,
-            firstSeenAt: { gte: startOfDay },
-            ...directPageFilter
-        }
-    });
-
-    // Recency Buckets
-    const fifteenMinsAgo = new Date(now.getTime() - 15 * 60 * 1000);
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const sevenDaysAgoDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const activeNow = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: fifteenMinsAgo }, ...directPageFilter } });
-    const active24h = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: twentyFourHoursAgo }, ...directPageFilter } });
-    const active7d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: sevenDaysAgoDate }, ...directPageFilter } });
-    const active30d = await prisma.contact.count({ where: { workspaceId, lastSeenAt: { gte: thirtyDaysAgoDate }, ...directPageFilter } });
-
-    // 5. Broadcast Stats
-    const totalCampaigns = await prisma.broadcastCampaign.count({
-        where: { workspaceId, ...directPageFilter }
-    });
-
-    // Sent via broadcast
-    const broadcastSentCount = await prisma.broadcastRecipient.count({
-        where: {
-            workspaceId,
-            status: 'SENT',
-            ...directPageFilter
-        }
-    });
 
     return {
         activeRules,

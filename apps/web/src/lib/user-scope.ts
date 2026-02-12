@@ -9,49 +9,59 @@ export interface UserScope {
     pageIds: string[]
 }
 
-export async function getScopedContext(): Promise<UserScope | null> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
+/**
+ * Get scoped context with optional pre-fetched userId to avoid duplicate getUser() calls.
+ * Pages that already have the user can pass it in to skip the auth check.
+ */
+export async function getScopedContext(preloadedUserId?: string): Promise<UserScope | null> {
+    let userId = preloadedUserId
+
+    if (!userId) {
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return null
+        userId = user.id
+    }
 
     const cookieStore = cookies()
     const projectId = cookieStore.get("adnext_project")?.value
     const pageId = cookieStore.get("adnext_page")?.value
 
     if (!projectId) {
-        // Fallback: Could return default project logic here
-        return { userId: user.id, projectId: null, pageId: null, pageIds: [] }
+        return { userId, projectId: null, pageId: null, pageIds: [] }
     }
 
     try {
-        // Validate Project
         const project = await prisma.project.findUnique({
             where: { id: projectId },
-            include: { pages: { select: { pageId: true } } }
+            select: {
+                id: true,
+                userId: true,
+                pages: { select: { pageId: true } }
+            }
         })
 
-        if (!project || project.userId !== user.id) {
-            return { userId: user.id, projectId: null, pageId: null, pageIds: [] }
+        if (!project || project.userId !== userId) {
+            return { userId, projectId: null, pageId: null, pageIds: [] }
         }
 
         const availablePageIds = project.pages.map(p => p.pageId)
 
-        // Validate Page
         let selectedPageId = pageId
         if (pageId && pageId !== 'ALL') {
             if (!availablePageIds.includes(pageId)) {
-                selectedPageId = 'ALL' // Fallback to ALL if page not in project
+                selectedPageId = 'ALL'
             }
         }
 
         return {
-            userId: user.id,
+            userId,
             projectId,
             pageId: selectedPageId || 'ALL',
             pageIds: (selectedPageId === 'ALL' || !selectedPageId) ? availablePageIds : [selectedPageId]
         }
     } catch (e) {
         console.error("Scope Error", e)
-        return { userId: user.id, projectId: null, pageId: null, pageIds: [] }
+        return { userId, projectId: null, pageId: null, pageIds: [] }
     }
 }

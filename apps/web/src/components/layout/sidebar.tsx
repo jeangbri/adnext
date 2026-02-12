@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useCallback, memo } from 'react'
 import {
     Home,
     Folder,
@@ -47,16 +48,16 @@ const sidebarItems = [
     }
 ]
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
     const pathname = usePathname()
     const router = useRouter()
     const supabase = createClient()
 
-    const handleLogout = async () => {
+    const handleLogout = useCallback(async () => {
         await supabase.auth.signOut()
         router.push('/entrar')
         router.refresh()
-    }
+    }, [supabase, router])
 
     return (
         <div className="flex h-screen w-64 flex-col border-r bg-card text-card-foreground">
@@ -145,4 +146,4 @@ export function Sidebar() {
             </div>
         </div>
     )
-}
+})

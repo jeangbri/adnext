@@ -4,7 +4,7 @@ import { getPrimaryWorkspace } from "@/lib/workspace"
 import { getScopedContext } from "@/lib/user-scope"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus, Zap, Trash2, Edit } from "lucide-react"
+import { Plus, Zap, Edit } from "lucide-react"
 import { redirect } from "next/navigation"
 import { DeleteRuleButton } from "./_components/delete-button"
 
@@ -15,24 +15,25 @@ export default async function AutomationsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect('/entrar')
 
-    const workspace = await getPrimaryWorkspace(user.id, user.email || '')
-    const scope = await getScopedContext()
+    // Parallel: workspace + scope
+    const [workspace, scope] = await Promise.all([
+        getPrimaryWorkspace(user.id, user.email || ''),
+        getScopedContext(user.id)
+    ])
+
     const workspaceId = workspace.id
 
     // Construct robust filter
     let whereClause: any = { workspaceId }
 
     if (scope?.projectId) {
-        // If we are in a Project context
         if (scope.pageId && scope.pageId !== 'ALL') {
-            // Specific Page Selected
             whereClause.OR = [
-                { pageId: scope.pageId },                 // New single field
-                { pageIds: { has: scope.pageId } },       // Old array field
-                { AND: [{ pageId: null }, { pageIds: { equals: [] } }] } // Global rules
+                { pageId: scope.pageId },
+                { pageIds: { has: scope.pageId } },
+                { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
             ]
         } else {
-            // "All Pages" of the Project
             const projectPageIds = scope.pageIds || []
 
             if (projectPageIds.length > 0) {
@@ -42,23 +43,17 @@ export default async function AutomationsPage() {
                     { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
                 ]
             } else {
-                // Project has no pages yet? Show only global
                 whereClause.OR = [
                     { AND: [{ pageId: null }, { pageIds: { equals: [] } }] }
                 ]
             }
         }
-    } else {
-        // No project selected (Legacy View or "No Project" view)
-        // Show everything for workspace? Or just globals?
-        // Let's show everything to be safe for now.
     }
 
-    // Fetch Rules
     const rules = await prisma.automationRule.findMany({
         where: whereClause,
         orderBy: { priority: 'desc' },
-        include: { actions: true }
+        include: { actions: { select: { id: true } } }
     })
 
     return (
@@ -107,20 +102,17 @@ export default async function AutomationsPage() {
                                     </td>
                                     <td className="px-6 py-4 max-w-xs truncate">
                                         <div className="flex flex-col gap-2">
-                                            {/* Trigger Type Badge */
-                                                (rule as any).triggerType && (rule as any).triggerType !== 'MESSAGE_ANY' && (
-                                                    <span className={`px-2 py-0.5 w-fit rounded text-[10px] font-bold uppercase
+                                            {(rule as any).triggerType && (rule as any).triggerType !== 'MESSAGE_ANY' && (
+                                                <span className={`px-2 py-0.5 w-fit rounded text-[10px] font-bold uppercase
                                                     ${(rule as any).triggerType === 'COMMENT_ON_POST' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
-                                                            (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'bg-orange-500/20 text-orange-500 border border-orange-500/30' :
-                                                                'bg-zinc-800 text-zinc-400'}
+                                                        (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'bg-orange-500/20 text-orange-500 border border-orange-500/30' :
+                                                            'bg-zinc-800 text-zinc-400'}
                                                 `}>
-                                                        {(rule as any).triggerType === 'COMMENT_ON_POST' ? 'Comentário' :
-                                                            (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'Reengajamento (>24h)' :
-                                                                (rule as any).triggerType}
-                                                    </span>
-                                                )}
-
-                                            {/* Keywords */}
+                                                    {(rule as any).triggerType === 'COMMENT_ON_POST' ? 'Comentário' :
+                                                        (rule as any).triggerType === 'MESSAGE_OUTSIDE_24H' ? 'Reengajamento (>24h)' :
+                                                            (rule as any).triggerType}
+                                                </span>
+                                            )}
                                             <div className="flex flex-wrap gap-1">
                                                 {rule.keywords.length > 0 ? rule.keywords.slice(0, 3).map((k, i) => (
                                                     <span key={i} className="px-2 py-0.5 rounded-full bg-zinc-800 text-xs border border-white/5">
