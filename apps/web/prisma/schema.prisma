@@ -102,6 +102,10 @@ model MessengerPage {
   getStartedPayload    String?
   iceBreakers          Json?
   
+  // Fallback / Default Rule
+  defaultRuleId        String?
+  defaultRule          AutomationRule? @relation("PageDefaultRule", fields: [defaultRuleId], references: [id], onDelete: SetNull)
+  
   // New Architecture Relations
   conversations        Conversation[]
   messageEvents        MessageEvent[]
@@ -161,6 +165,9 @@ model AutomationRule {
   
   // New Flow Field
   flow            Json?    // { enabled: true, steps: [...] }
+
+  // Reverse relation for default fallback pages
+  defaultForPages  MessengerPage[] @relation("PageDefaultRule")
 
   @@index([workspaceId, isActive])
   @@index([pageId, triggerType])

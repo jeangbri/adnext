@@ -15,6 +15,7 @@ type LogEntry = {
     createdAt: string
     pageName: string
     contactName: string
+    ruleName: string | null
 }
 
 export default function LogsPage() {
@@ -54,8 +55,8 @@ export default function LogsPage() {
                         <tr>
                             <th className="px-6 py-4">Data</th>
                             <th className="px-6 py-4">Página</th>
-                            <th className="px-6 py-4">Origem</th>
-                            <th className="px-6 py-4">Tipo</th>
+                            <th className="px-6 py-4">Lead</th>
+                            <th className="px-6 py-4">Automação</th>
                             <th className="px-6 py-4">Conteúdo</th>
                             <th className="px-6 py-4">Status</th>
                         </tr>
@@ -67,7 +68,7 @@ export default function LogsPage() {
                                     <td className="px-6 py-4"><Skeleton className="h-3 w-28 bg-zinc-800" /></td>
                                     <td className="px-6 py-4"><Skeleton className="h-3 w-20 bg-zinc-800" /></td>
                                     <td className="px-6 py-4"><Skeleton className="h-3 w-24 bg-zinc-800" /></td>
-                                    <td className="px-6 py-4"><Skeleton className="h-5 w-24 rounded-full bg-zinc-800" /></td>
+                                    <td className="px-6 py-4"><Skeleton className="h-3 w-28 bg-zinc-800" /></td>
                                     <td className="px-6 py-4"><Skeleton className="h-3 w-40 bg-zinc-800" /></td>
                                     <td className="px-6 py-4"><Skeleton className="h-5 w-16 rounded-full bg-zinc-800" /></td>
                                 </tr>
@@ -84,16 +85,15 @@ export default function LogsPage() {
                                     <td className="px-6 py-4">
                                         <span className="text-sm">{log.contactName}</span>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <Badge variant="outline" className={`
-                                            ${log.type === 'COMMENT' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' : ''}
-                                            ${log.type === 'MESSAGE' && log.direction === 'IN' ? 'text-blue-400 bg-blue-400/10 border-blue-400/20' : ''}
-                                            ${log.type === 'MESSAGE' && log.direction === 'OUT' ? 'text-purple-400 bg-purple-400/10 border-purple-400/20' : ''}
-                                        `}>
-                                            {log.type === 'COMMENT' ? 'COMENTÁRIO' : (log.direction === 'IN' ? 'MSG RECEBIDA' : 'MSG ENVIADA')}
-                                        </Badge>
+                                    <td className="px-6 py-4 text-xs text-zinc-400">
+                                        {log.ruleName ? (
+                                            <span className="text-blue-400">{log.ruleName}</span>
+                                        ) : log.status === 'FALLBACK' || log.status === 'MATCHED_FALLBACK' ? (
+                                            <span className="text-amber-500">Fallback</span>
+                                        ) : '-'}
                                     </td>
                                     <td className="px-6 py-4 max-w-xs truncate" title={log.content}>
+                                        {log.type === 'COMMENT' && <Badge variant="outline" className="mr-2 text-yellow-400 bg-yellow-400/10 border-yellow-400/20 text-[10px]">COMENTÁRIO</Badge>}
                                         {log.content}
                                     </td>
                                     <td className="px-6 py-4">
@@ -101,7 +101,8 @@ export default function LogsPage() {
                                             <Badge variant="secondary" className={
                                                 log.status === 'ERROR' || log.status === 'FAILED' ? 'bg-red-500/10 text-red-500' :
                                                     log.status === 'MATCHED' || log.status === 'SENT' || log.status === 'RECEIVED' ? 'bg-green-500/10 text-green-500' :
-                                                        'bg-zinc-800 text-zinc-400'
+                                                        log.status === 'FALLBACK' || log.status === 'MATCHED_FALLBACK' ? 'bg-amber-500/10 text-amber-500' :
+                                                            'bg-zinc-800 text-zinc-400'
                                             }>
                                                 {log.status}
                                             </Badge>

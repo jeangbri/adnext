@@ -60,19 +60,42 @@ export async function GET(req: NextRequest) {
         }) : []
     ]);
 
+    // Fetch Rule Names for IDs found in logs
+    const ruleIds = messageLogs
+        .map((l: any) => l.matchedRuleId)
+        .filter((id: string) => id); // Filter nulls/undefined
+
+    let ruleNameMap: Record<string, string> = {};
+    if (ruleIds.length > 0) {
+        const rules = await prisma.automationRule.findMany({
+            where: { id: { in: ruleIds } },
+            select: { id: true, name: true }
+        });
+        rules.forEach((r: any) => {
+            ruleNameMap[r.id] = r.name;
+        });
+    }
+
     const unifiedLogs = [
-        ...messageLogs.map((l: any) => ({
-            id: l.id,
-            type: 'MESSAGE',
-            direction: l.direction,
-            source: l.actionType ? 'AUTOMATION' : 'WEBHOOK',
-            content: l.incomingText || (l.actionType ? `Envio: ${l.actionType}` : '-'),
-            status: l.status,
-            error: l.error,
-            createdAt: l.createdAt,
-            pageName: l.page.pageName,
-            contactName: l.contact?.firstName || l.contact?.psid || 'Desconhecido',
-        })),
+        ...messageLogs.map((l: any) => {
+            const ruleName = l.matchedRuleId ? (ruleNameMap[l.matchedRuleId] || 'Regra') : null;
+            // Custom display for Fallback
+            const displayStatus = l.status === 'MATCHED_FALLBACK' ? 'FALLBACK' : l.status;
+
+            return {
+                id: l.id,
+                type: 'MESSAGE',
+                direction: l.direction,
+                source: l.actionType ? 'AUTOMATION' : 'WEBHOOK',
+                content: l.incomingText || (l.actionType ? `Envio: ${l.actionType}` : '-'),
+                status: displayStatus,
+                error: l.error,
+                createdAt: l.createdAt,
+                pageName: l.page.pageName,
+                contactName: l.contact?.firstName || l.contact?.psid || 'Desconhecido',
+                ruleName: ruleName
+            };
+        }),
         ...commentEvents.map((c: any) => ({
             id: c.id,
             type: 'COMMENT',
@@ -84,8 +107,9 @@ export async function GET(req: NextRequest) {
             createdAt: c.createdAt,
             pageName: c.page.pageName,
             contactName: c.fromUserId || 'Usuário Facebook',
+            ruleName: null
         }))
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
+    ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
 
     return NextResponse.json(unifiedLogs);
 }

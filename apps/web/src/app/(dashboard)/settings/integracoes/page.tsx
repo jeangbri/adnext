@@ -24,6 +24,7 @@ export default function IntegrationsPage() {
     const [configOpen, setConfigOpen] = useState(false)
     const [selectedAccount, setSelectedAccount] = useState<any>(null)
     const [getStartedPayload, setGetStartedPayload] = useState('')
+    const [defaultRuleId, setDefaultRuleId] = useState<string | null>(null)
     const [iceBreakers, setIceBreakers] = useState<{ question: string, payload: string }[]>([])
 
     const router = useRouter()
@@ -109,6 +110,7 @@ export default function IntegrationsPage() {
     const handleOpenConfig = (account: any) => {
         setSelectedAccount(account)
         setGetStartedPayload(account.getStartedPayload || '')
+        setDefaultRuleId(account.defaultRuleId || null)
         const rawBreakers = account.iceBreakers && Array.isArray(account.iceBreakers) ? account.iceBreakers : []
         const normalizedBreakers = rawBreakers.map((ib: any) => ({
             question: ib.question || '',
@@ -130,7 +132,8 @@ export default function IntegrationsPage() {
                 body: JSON.stringify({
                     pageId: selectedAccount.pageId,
                     getStartedPayload,
-                    iceBreakers
+                    iceBreakers,
+                    defaultRuleId
                 })
             })
 
@@ -307,6 +310,29 @@ export default function IntegrationsPage() {
                                 <div>
                                     <p className="font-medium text-sm">{selectedAccount.pageName}</p>
                                     <p className="text-xs text-zinc-500">ID: {selectedAccount.pageId}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label className="text-xs uppercase tracking-wider text-zinc-500">Resposta Padrão (Fallback)</Label>
+                                <div className="space-y-2">
+                                    <Select
+                                        value={defaultRuleId || 'none'}
+                                        onValueChange={(v) => setDefaultRuleId(v === 'none' ? '' : v)}
+                                    >
+                                        <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                                            <SelectValue placeholder="Selecione uma Automação" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                                            <SelectItem value="none">Nenhuma (Silencioso)</SelectItem>
+                                            {rules.filter((r: any) => !r.triggerType || r.triggerType.startsWith('MESSAGE')).map(rule => (
+                                                <SelectItem key={rule.id} value={rule.id}>📦 {rule.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-[10px] text-zinc-500">
+                                        Disparada quando o usuário envia uma mensagem e nenhuma outra regra é encontrada. (Cooldown: 5 min)
+                                    </p>
                                 </div>
                             </div>
 

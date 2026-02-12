@@ -426,10 +426,83 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
     if (matchedRule) {
         await executeRule(matchedRule, page, contact, incomingLogId, text);
     } else {
-        // No match
+        // ---------------------------------------------------------
+        // FALLBACK LOGIC (No standard rule matched)
+        // ---------------------------------------------------------
+
+        // 1. Check if Page has Default Rule
+        // We need to fetch page with defaultRuleId if not already loaded? 
+        // The 'page' arg usually comes from 'processMessengerEvent' -> 'prisma.messengerPage.findUnique'.
+        // We need to ensure 'defaultRuleId' is fetched or re-fetch it here.
+        // Optimization: Let's re-fetch only if not present in object (or just fetch simple id)
+
+        let defaultRuleId = (page as any).defaultRuleId;
+
+        // If typescript complains, we might need to cast or re-fetch. 
+        // safe bit: re-fetch distinct field if uncertain, or trust calling scope updated include.
+        // The calling scope (handleMessagingEvent) includes { workspace: true }. It might NOT include defaultRuleId if specific select wasn't used (gets all scalars by default).
+        // defaultRuleId is a scalar, so it SHOULD be there.
+
+        if (defaultRuleId) {
+            console.log(`[Engine] No match found. Checking Fallback Rule: ${defaultRuleId}`);
+
+            // 2. Cooldown Check (Prevent Loop)
+            // Strategy: Check last log for this Contact that was a FALLBACK execution within X minutes.
+            // We can identify fallback execution by a specific tag in MessageLog? 
+            // Or RuleExecution? 
+            // RuleExecution records the ruleId. We can check if we executed 'defaultRuleId' recently.
+
+            const FALLBACK_COOLDOWN_MINUTES = 5;
+            const cooldownCutoff = new Date(Date.now() - FALLBACK_COOLDOWN_MINUTES * 60 * 1000);
+
+            const recentFallback = await prisma.ruleExecution.findFirst({
+                where: {
+                    ruleId: defaultRuleId,
+                    contactId: contact.id,
+                    lastExecutedAt: { gte: cooldownCutoff }
+                }
+            });
+
+            if (recentFallback) {
+                console.log(`[Engine] Fallback suppressed by cooldown (${FALLBACK_COOLDOWN_MINUTES}m)`);
+                await prisma.messageLog.update({
+                    where: { id: incomingLogId },
+                    data: { status: 'SKIPPED', error: 'Fallback Cooldown' }
+                });
+            } else {
+                // 3. Execute Fallback
+                const fallbackRule = await prisma.automationRule.findUnique({
+                    where: { id: defaultRuleId },
+                    include: { actions: { orderBy: { order: 'asc' } } }
+                });
+
+                if (fallbackRule && fallbackRule.isActive) {
+                    console.log(`[Engine] Executing Fallback Rule: ${fallbackRule.name}`);
+
+                    // Update Log to reflect Fallback
+                    await prisma.messageLog.update({
+                        where: { id: incomingLogId },
+                        data: {
+                            matchedRuleId: fallbackRule.id,
+                            status: 'MATCHED_FALLBACK' // Custom status for clarity? or just MATCHED 
+                            // Schema allows string, so 'MATCHED_FALLBACK' works if no enum constraint. 
+                            // Checking schema... status is String. Good.
+                        }
+                    });
+
+                    // Execute
+                    await executeRule(fallbackRule, page, contact, incomingLogId, text);
+                    return; // Done
+                } else {
+                    console.log(`[Engine] Fallback rule not found or inactive.`);
+                }
+            }
+        }
+
+        // No match and No Fallback (or blocked)
         await prisma.messageLog.update({
             where: { id: incomingLogId },
-            data: { status: 'SKIPPED' }
+            data: { status: 'SKIPPED' } // Default "No Match"
         });
     }
 }
