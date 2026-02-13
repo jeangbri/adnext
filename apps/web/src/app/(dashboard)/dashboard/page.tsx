@@ -7,8 +7,7 @@ import { ExecutionsChart } from "./_components/executions-chart"
 import { LeadsFunnel } from "./_components/leads-funnel"
 import { DashboardFilter } from "./_components/dashboard-filter"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatDistanceToNow } from "date-fns"
-import { ptBR } from "date-fns/locale"
+
 
 type DashboardStats = {
     activeRules: number
@@ -158,49 +157,7 @@ export default function DashboardPage() {
                 ) : null}
             </div>
 
-            {/* Recent Activity */}
-            <div className="grid gap-4 md:grid-cols-1">
-                <Card className="bg-zinc-900/50 border-zinc-800">
-                    <CardHeader>
-                        <CardTitle className="text-white">Atividade Recente</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-8">
-                            {loading ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                    <div key={i} className="flex items-center gap-4">
-                                        <div className="ml-4 space-y-1.5 flex-1">
-                                            <Skeleton className="h-4 w-48 bg-zinc-800" />
-                                            <Skeleton className="h-3 w-24 bg-zinc-800/60" />
-                                        </div>
-                                        <Skeleton className="h-4 w-20 bg-zinc-800" />
-                                    </div>
-                                ))
-                            ) : stats?.recentActivity.length === 0 ? (
-                                <div className="text-sm text-zinc-500 flex items-center justify-center h-[200px] border border-dashed border-zinc-800 rounded-lg bg-black/20">
-                                    Nenhuma atividade recente.
-                                </div>
-                            ) : (
-                                stats?.recentActivity.map((activity) => (
-                                    <div key={activity.id} className="flex items-center">
-                                        <div className="ml-4 space-y-1">
-                                            <p className="text-sm font-medium leading-none text-zinc-200">
-                                                {activity.description}
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true, locale: ptBR })}
-                                            </p>
-                                        </div>
-                                        <div className="ml-auto font-medium text-sm text-zinc-400">
-                                            {activity.type === 'MESSAGE' ? 'Mensagem' : 'Execução'}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+
         </div>
     )
 }
