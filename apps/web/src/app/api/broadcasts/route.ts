@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
         name, pageId, audienceType, sendMode, scheduledAt,
-        policyMode, tag, messageType, payload
+        policyMode, tag, messageType, payload, templateId
     } = body;
 
     // Validate Page
@@ -25,6 +25,32 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+        // CHECK IF BROADCAST V2 (Utility Mode)
+        if (policyMode === 'UTILITY' && process.env.NEXT_PUBLIC_BROADCAST_V2 === 'true') {
+            const job = await prisma.broadcastJobV2.create({
+                data: {
+                    pageId,
+                    policyType: 'UTILITY',
+                    templateId,
+                    status: 'PENDING', // Runner picks it up
+                    scheduledAt: sendMode === 'IMMEDIATE' ? new Date() : new Date(scheduledAt),
+                    payload: { ...payload, name, audienceType } // Include metadata in payload
+                }
+            });
+
+            if (sendMode === 'IMMEDIATE') {
+                // Async trigger V2 runner
+                // We use fetch to self to avoid circular imports or long running process blocks
+                // finding the base URL might be tricky in serverless, but we can try generic import or just let cron pick it up.
+                // Assuming runner-v2 is an API route, we can call it? OR just import the runner function.
+                try {
+                    const { broadcastRunnerV2 } = await import("@/lib/messenger/broadcast-v2/broadcast-runner-v2");
+                    broadcastRunnerV2.run().catch(console.error);
+                } catch (e) { console.error("Trigger V2 runner failed", e); }
+            }
+            return NextResponse.json(job);
+        }
+
         const campaign = await prisma.broadcastCampaign.create({
             data: {
                 workspaceId: workspace.id,

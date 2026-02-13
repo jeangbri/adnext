@@ -27,30 +27,30 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id])
-  pages     MessengerPage[]
+  user  User            @relation(fields: [userId], references: [id])
+  pages MessengerPage[]
 
   @@unique([userId, slug])
   @@index([userId])
 }
 
 model Workspace {
-  id                String             @id @default(uuid())
-  name              String
-  ownerId           String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  
-  owner             User               @relation(fields: [ownerId], references: [id])
-  members           WorkspaceMember[]
-  
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner   User              @relation(fields: [ownerId], references: [id])
+  members WorkspaceMember[]
+
   // New Messenger Architecture
-  messengerPages    MessengerPage[]
+  messengerPages MessengerPage[]
 
   // Workflow integration (Fix for missing relations)
   instagramAccounts InstagramAccount[]
   workflowFolders   WorkflowFolder[]
-  workflows        Workflow[]
+  workflows         Workflow[]
   responseTemplates ResponseTemplate[]
   contacts          Contact[]
   automationRules   AutomationRule[]
@@ -74,62 +74,66 @@ model WorkspaceMember {
 // ---------------------------------------------------------
 
 model MessengerPage {
-  id                   String   @id @default(uuid())
-  workspaceId          String
-  pageId               String   @unique
-  pageName             String
-  pageAccessToken      String
-  isActive             Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  
-  workspace            Workspace @relation(fields: [workspaceId], references: [id])
-  
-  projectId            String?
-  project              Project?  @relation(fields: [projectId], references: [id])
-  
-  userId               String?
-  user                 User?     @relation(fields: [userId], references: [id])
+  id              String   @id @default(uuid())
+  workspaceId     String
+  pageId          String   @unique
+  pageName        String
+  pageAccessToken String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  userId            String?
+  user              User?               @relation(fields: [userId], references: [id])
+  logs              MessageLog[]
+  contacts          Contact[]
+  ruleExecutions    RuleExecution[]
+  campaigns         BroadcastCampaign[]
+  automationRules   AutomationRule[]
+  getStartedPayload String?
+  iceBreakers       Json?
+
+  // Fallback / Default Rule
+  defaultRuleId String?
+  defaultRule   AutomationRule? @relation("PageDefaultRule", fields: [defaultRuleId], references: [id], onDelete: SetNull)
+
+  // New Architecture Relations
+  conversations      Conversation[]
+  commentEvents      CommentEvent[]
+  conversationStates ConversationState[]
+
+  // Broadcast V2 Relations
+  messengerTemplates MessengerTemplate[]
+  broadcastJobsV2    BroadcastJobV2[]
+  messageEvents      MessageEvent[]
+
+  @@unique([userId, pageId])
   @@index([userId])
   @@index([projectId])
-  @@unique([userId, pageId])
-  logs                 MessageLog[]
-  contacts             Contact[]
-  ruleExecutions       RuleExecution[]
-  campaigns            BroadcastCampaign[]
-  automationRules      AutomationRule[]
-  getStartedPayload    String?
-  iceBreakers          Json?
-  
-  // Fallback / Default Rule
-  defaultRuleId        String?
-  defaultRule          AutomationRule? @relation("PageDefaultRule", fields: [defaultRuleId], references: [id], onDelete: SetNull)
-  
-  // New Architecture Relations
-  conversations        Conversation[]
-  messageEvents        MessageEvent[]
-  commentEvents        CommentEvent[]
-  conversationStates   ConversationState[]
 }
 
 model Contact {
   id              String   @id @default(uuid())
   workspaceId     String
-  psid            String   // Messenger User ID (Page Scoped ID)
+  psid            String // Messenger User ID (Page Scoped ID)
   firstName       String?
   lastName        String?
   profilePicUrl   String?
   firstSeenAt     DateTime @default(now())
   lastSeenAt      DateTime @default(now())
   lastMessageText String?
-  tags            Json?    // ["tag1", "tag2"]
-  
-  workspace       Workspace @relation(fields: [workspaceId], references: [id])
-  pageId          String?
-  page            MessengerPage? @relation(fields: [pageId], references: [pageId]) 
-  logs            MessageLog[]
-  ruleExecutions  RuleExecution[]
+  tags            Json? // ["tag1", "tag2"]
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
+  pageId         String?
+  page           MessengerPage?  @relation(fields: [pageId], references: [pageId])
+  logs           MessageLog[]
+  ruleExecutions RuleExecution[]
 
   @@unique([pageId, psid])
   @@index([pageId])
@@ -137,37 +141,37 @@ model Contact {
 }
 
 model AutomationRule {
-  id              String   @id @default(uuid())
-  workspaceId     String
-  name            String
-  isActive        Boolean  @default(true)
-  priority        Int      @default(0)
-  matchType       String   // CONTAINS, EXACT, STARTS_WITH, REGEX
-  keywords        String[]
-  caseSensitive   Boolean  @default(false)
-  normalizeAccents Boolean @default(true)
-  matchOperator   String   // ANY, ALL
-  cooldownSeconds Int      @default(0)
-  schedule        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(uuid())
+  workspaceId      String
+  name             String
+  isActive         Boolean  @default(true)
+  priority         Int      @default(0)
+  matchType        String // CONTAINS, EXACT, STARTS_WITH, REGEX
+  keywords         String[]
+  caseSensitive    Boolean  @default(false)
+  normalizeAccents Boolean  @default(true)
+  matchOperator    String // ANY, ALL
+  cooldownSeconds  Int      @default(0)
+  schedule         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  workspace       Workspace @relation(fields: [workspaceId], references: [id])
-  actions         AutomationAction[]
-  executions      RuleExecution[]
-  pageIds         String[] @default([]) // Deprecated in favor of pageId
-  pageId          String?
-  page            MessengerPage? @relation(fields: [pageId], references: [pageId])
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id])
+  actions    AutomationAction[]
+  executions RuleExecution[]
+  pageIds    String[]           @default([]) // Deprecated in favor of pageId
+  pageId     String?
+  page       MessengerPage?     @relation(fields: [pageId], references: [pageId])
 
   // New Trigger Fields
-  triggerType     String   @default("MESSAGE_ANY") // MESSAGE_ANY, MESSAGE_OUTSIDE_24H, COMMENT_ON_POST
-  triggerConfig   Json?    // Stores specific config like postIds, thresholdHours, etc.
-  
+  triggerType   String @default("MESSAGE_ANY") // MESSAGE_ANY, MESSAGE_OUTSIDE_24H, COMMENT_ON_POST
+  triggerConfig Json? // Stores specific config like postIds, thresholdHours, etc.
+
   // New Flow Field
-  flow            Json?    // { enabled: true, steps: [...] }
+  flow Json? // { enabled: true, steps: [...] }
 
   // Reverse relation for default fallback pages
-  defaultForPages  MessengerPage[] @relation("PageDefaultRule")
+  defaultForPages MessengerPage[] @relation("PageDefaultRule")
 
   @@index([workspaceId, isActive])
   @@index([pageId, triggerType])
@@ -180,29 +184,29 @@ model ConversationState {
   projectId    String?
   ruleId       String
   stepId       String
-  status       String   // waiting_input, finished
-  expectedType String   // keyword, number, any
+  status       String // waiting_input, finished
+  expectedType String // keyword, number, any
   metadata     Json?
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  page         MessengerPage @relation(fields: [pageId], references: [pageId])
+  page MessengerPage @relation(fields: [pageId], references: [pageId])
 
   @@unique([pageId, senderPsid])
   @@index([expiresAt])
 }
 
 model AutomationAction {
-  id        String   @id @default(uuid())
-  ruleId    String
-  type      String   // TEXT, BUTTON_TEMPLATE, QUICK_REPLIES, AUDIO, FILE, IMAGE
-  payload   Json
-  order     Int      @default(0)
-  delayMs   Int      @default(0)
-  
-  rule      AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  
+  id      String @id @default(uuid())
+  ruleId  String
+  type    String // TEXT, BUTTON_TEMPLATE, QUICK_REPLIES, AUDIO, FILE, IMAGE
+  payload Json
+  order   Int    @default(0)
+  delayMs Int    @default(0)
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
   @@index([ruleId, order])
 }
 
@@ -210,21 +214,21 @@ model MessageLog {
   id            String   @id @default(uuid())
   contactId     String?
   pageId        String
-  direction     String   // IN, OUT
+  direction     String // IN, OUT
   incomingText  String?
   matchedRuleId String?
   actionType    String?
-  status        String   // RECEIVED, MATCHED, SENT, FAILED, SKIPPED, DUPLICATE
+  status        String // RECEIVED, MATCHED, SENT, FAILED, SKIPPED, DUPLICATE
   error         String?
   rawEvent      Json?
   rawResponse   Json?
   createdAt     DateTime @default(now())
 
-  contact       Contact? @relation(fields: [contactId], references: [id])
-  page          MessengerPage @relation(fields: [pageId], references: [pageId]) 
-  campaignId    String?
-  campaign      BroadcastCampaign? @relation(fields: [campaignId], references: [id]) 
-  
+  contact    Contact?           @relation(fields: [contactId], references: [id])
+  page       MessengerPage      @relation(fields: [pageId], references: [pageId])
+  campaignId String?
+  campaign   BroadcastCampaign? @relation(fields: [campaignId], references: [id])
+
   @@index([pageId, createdAt])
   @@index([contactId])
 }
@@ -233,66 +237,66 @@ model RuleExecution {
   id             String   @id @default(uuid())
   ruleId         String
   contactId      String
-  pageId         String?   // For faster filtering by page
+  pageId         String? // For faster filtering by page
   lastExecutedAt DateTime @default(now())
   timesExecuted  Int      @default(1)
 
-  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  page           MessengerPage? @relation(fields: [pageId], references: [pageId])
-  
+  rule    AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  contact Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  page    MessengerPage? @relation(fields: [pageId], references: [pageId])
+
   @@index([pageId, lastExecutedAt])
   @@index([ruleId])
 }
 
 model BroadcastCampaign {
-  id              String   @id @default(uuid())
-  workspaceId     String
-  pageId          String
-  name            String
-  status          String   // DRAFT, SCHEDULED, SENDING, PAUSED, COMPLETED, FAILED
-  audienceType    String   // ALL, ACTIVE_24H, ACTIVE_7D, NEW_TODAY, CUSTOM
-  audienceFilter  Json?
-  sendMode        String   // IMMEDIATE, SCHEDULED
-  scheduledAt     DateTime?
-  policyMode      String   // 24H_ONLY, TAGGED
-  tag             String?  // ACCOUNT_UPDATE, POST_PURCHASE_UPDATE, CONFIRMED_EVENT_UPDATE, HUMAN_AGENT
-  messageType     String   // TEXT, BUTTON_TEMPLATE, AUDIO
-  payload         Json
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  // Counters (computed or cached)
-  totalRecipients Int      @default(0)
-  totalSent       Int      @default(0)
-  totalFailed     Int      @default(0)
-  totalSkipped    Int      @default(0)
+  id             String    @id @default(uuid())
+  workspaceId    String
+  pageId         String
+  name           String
+  status         String // DRAFT, SCHEDULED, SENDING, PAUSED, COMPLETED, FAILED
+  audienceType   String // ALL, ACTIVE_24H, ACTIVE_7D, NEW_TODAY, CUSTOM
+  audienceFilter Json?
+  sendMode       String // IMMEDIATE, SCHEDULED
+  scheduledAt    DateTime?
+  policyMode     String // 24H_ONLY, TAGGED
+  tag            String? // ACCOUNT_UPDATE, POST_PURCHASE_UPDATE, CONFIRMED_EVENT_UPDATE, HUMAN_AGENT
+  messageType    String // TEXT, BUTTON_TEMPLATE, AUDIO
+  payload        Json
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  workspace       Workspace @relation(fields: [workspaceId], references: [id])
-  page            MessengerPage @relation(fields: [pageId], references: [pageId])
-  recipients      BroadcastRecipient[]
-  logs            MessageLog[]
-  
+  // Counters (computed or cached)
+  totalRecipients Int @default(0)
+  totalSent       Int @default(0)
+  totalFailed     Int @default(0)
+  totalSkipped    Int @default(0)
+
+  workspace  Workspace            @relation(fields: [workspaceId], references: [id])
+  page       MessengerPage        @relation(fields: [pageId], references: [pageId])
+  recipients BroadcastRecipient[]
+  logs       MessageLog[]
+
   @@index([workspaceId, pageId, status])
   @@index([scheduledAt])
 }
 
 model BroadcastRecipient {
-  id             String   @id @default(uuid())
-  campaignId     String
-  workspaceId    String
-  pageId         String
-  userPsid       String
-  contactId      String?  // Optional link to Contact
-  status         String   // PENDING, SENT, FAILED, SKIPPED
-  skipReason     String?
-  metaMessageId  String?
-  error          String?
-  createdAt      DateTime @default(now())
-  sentAt         DateTime?
+  id            String    @id @default(uuid())
+  campaignId    String
+  workspaceId   String
+  pageId        String
+  userPsid      String
+  contactId     String? // Optional link to Contact
+  status        String // PENDING, SENT, FAILED, SKIPPED
+  skipReason    String?
+  metaMessageId String?
+  error         String?
+  createdAt     DateTime  @default(now())
+  sentAt        DateTime?
 
-  campaign       BroadcastCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
+  campaign BroadcastCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
   @@index([campaignId, status])
   @@index([workspaceId, pageId, createdAt])
   @@index([userPsid])
@@ -303,17 +307,17 @@ model BroadcastRecipient {
 // ---------------------------------------------------------
 
 model Conversation {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   pageId            String
   psid              String
   lastUserMessageAt DateTime?
   lastPageMessageAt DateTime?
-  lastInteractionAt DateTime @default(now())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  lastInteractionAt DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  page              MessengerPage @relation(fields: [pageId], references: [pageId])
-  
+  page MessengerPage @relation(fields: [pageId], references: [pageId])
+
   @@unique([pageId, psid])
   @@index([pageId, lastInteractionAt])
 }
@@ -322,15 +326,15 @@ model MessageEvent {
   id          String   @id @default(uuid())
   pageId      String
   psid        String
-  direction   String   // IN, OUT
-  source      String   // webhook_message, webhook_postback, broadcast, comment_dm, manual_test, automation
-  messageType String   // text, attachment, postback, reaction, read, referral, unknown
+  direction   String // IN, OUT
+  source      String // webhook_message, webhook_postback, broadcast, comment_dm, manual_test, automation
+  messageType String // text, attachment, postback, reaction, read, referral, unknown
   payloadJson Json?
   ruleId      String?
   workflowId  String?
   createdAt   DateTime @default(now())
 
-  page        MessengerPage @relation(fields: [pageId], references: [pageId])
+  page MessengerPage @relation(fields: [pageId], references: [pageId])
 
   @@index([pageId, direction, createdAt])
   @@index([pageId, source])
@@ -346,7 +350,7 @@ model CommentEvent {
   payloadJson Json?
   createdAt   DateTime @default(now())
 
-  page        MessengerPage @relation(fields: [pageId], references: [pageId])
+  page MessengerPage @relation(fields: [pageId], references: [pageId])
 
   @@index([pageId, postId])
 }
@@ -356,132 +360,132 @@ model CommentEvent {
 // ---------------------------------------------------------
 
 model InstagramAccount {
-  id                   String   @id @default(uuid())
+  id                   String    @id @default(uuid())
   workspaceId          String
   workspace            Workspace @relation(fields: [workspaceId], references: [id])
   igUserId             String
   username             String
   profilePicUrl        String?
-  status               String   // CONNECTED, DISCONNECTED, TOKEN_EXPIRED
+  status               String // CONNECTED, DISCONNECTED, TOKEN_EXPIRED
   accessTokenEncrypted String
   tokenExpiresAt       DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  followers         InstagramFollower[]
-  
+  followers InstagramFollower[]
+
   @@unique([workspaceId, igUserId])
 }
 
 model InstagramFollower {
-  id              String   @id @default(uuid())
-  igUserId        String   
-  username        String?
-  tags            String[] @default([])
-  accountId       String
-  account         InstagramAccount @relation(fields: [accountId], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id        String           @id @default(uuid())
+  igUserId  String
+  username  String?
+  tags      String[]         @default([])
+  accountId String
+  account   InstagramAccount @relation(fields: [accountId], references: [id])
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
   @@unique([igUserId, accountId])
 }
 
 model WorkflowFolder {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id])
   name        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   workflows   Workflow[]
 }
 
 model Workflow {
-  id          String   @id @default(uuid())
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  folderId    String?
-  folder      WorkflowFolder? @relation(fields: [folderId], references: [id])
-  title       String
-  description String?
-  channels    Json     // ["dm","story","feed"]
+  id             String          @id @default(uuid())
+  workspaceId    String
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
+  folderId       String?
+  folder         WorkflowFolder? @relation(fields: [folderId], references: [id])
+  title          String
+  description    String?
+  channels       Json // ["dm","story","feed"]
   flowDefinition Json? // Stores the visual graph (nodes/edges) state
-  isActive    Boolean  @default(false)
-  status      String   // DRAFT, PUBLISHED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  publishedAt DateTime?
-  runCount    Int      @default(0)
-  lastRunAt   DateTime?
+  isActive       Boolean         @default(false)
+  status         String // DRAFT, PUBLISHED
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  publishedAt    DateTime?
+  runCount       Int             @default(0)
+  lastRunAt      DateTime?
 
-  triggers        WorkflowTrigger[]
-  actions         WorkflowAction[]
-  automationRuns  AutomationRun[]
+  triggers       WorkflowTrigger[]
+  actions        WorkflowAction[]
+  automationRuns AutomationRun[]
 }
 
 model WorkflowTrigger {
-  id          String   @id @default(uuid())
-  workflowId  String
-  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  type        String   // DM_RECEIVED, STORY_REPLY, FEED_COMMENT
-  configJson  Json
+  id         String   @id @default(uuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  type       String // DM_RECEIVED, STORY_REPLY, FEED_COMMENT
+  configJson Json
 }
 
 model WorkflowAction {
-  id          String   @id @default(uuid())
-  workflowId  String
-  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  type        String   // SEND_DM, REPLY_COMMENT
-  configJson  Json
+  id         String   @id @default(uuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  type       String // SEND_DM, REPLY_COMMENT
+  configJson Json
 }
 
 model ResponseTemplate {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
   name        String
   body        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model WebhookEvent {
-  id              String   @id @default(uuid())
-  workspaceId     String?
-  platform        String   // INSTAGRAM
-  eventType       String
-  platformEventId String   @unique // idempotency key
-  payloadJson     Json
-  receivedAt      DateTime @default(now())
-  signatureValid  Boolean
-  processedAt     DateTime?
-  processingStatus String   // PENDING, PROCESSING, DONE, ERROR
-  lastError       String?
-  automationRuns  AutomationRun[]
+  id               String          @id @default(uuid())
+  workspaceId      String?
+  platform         String // INSTAGRAM
+  eventType        String
+  platformEventId  String          @unique // idempotency key
+  payloadJson      Json
+  receivedAt       DateTime        @default(now())
+  signatureValid   Boolean
+  processedAt      DateTime?
+  processingStatus String // PENDING, PROCESSING, DONE, ERROR
+  lastError        String?
+  automationRuns   AutomationRun[]
 }
 
 model AutomationRun {
-  id              String   @id @default(uuid())
-  workflowId      String
-  workflow        Workflow @relation(fields: [workflowId], references: [id])
-  webhookEventId  String
-  webhookEvent    WebhookEvent @relation(fields: [webhookEventId], references: [id])
-  status          String   // SUCCESS, ERROR, SKIPPED
-  startedAt       DateTime @default(now())
-  finishedAt      DateTime?
-  correlationId   String?
-  errorMessage    String?
-  logs            AutomationRunLog[]
+  id             String             @id @default(uuid())
+  workflowId     String
+  workflow       Workflow           @relation(fields: [workflowId], references: [id])
+  webhookEventId String
+  webhookEvent   WebhookEvent       @relation(fields: [webhookEventId], references: [id])
+  status         String // SUCCESS, ERROR, SKIPPED
+  startedAt      DateTime           @default(now())
+  finishedAt     DateTime?
+  correlationId  String?
+  errorMessage   String?
+  logs           AutomationRunLog[]
 }
 
 model AutomationRunLog {
-  id        String   @id @default(uuid())
-  runId     String
-  run       AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  ts        DateTime @default(now())
-  level     String   // INFO, WARN, ERROR
-  message   String
-  metaJson  Json?
+  id       String        @id @default(uuid())
+  runId    String
+  run      AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ts       DateTime      @default(now())
+  level    String // INFO, WARN, ERROR
+  message  String
+  metaJson Json?
 }
 
 // ---------------------------------------------------------
@@ -489,20 +493,77 @@ model AutomationRunLog {
 // Replaces Redis/QStash for action delays in automations
 // ---------------------------------------------------------
 model ScheduledExecution {
-  id              String   @id @default(uuid())
-  pageId          String
-  psid            String
-  ruleId          String
-  nextIndex       Int
-  runAt           DateTime
-  status          String   @default("PENDING") // PENDING, PROCESSING, DONE, FAILED
-  refLogId        String?
+  id               String   @id @default(uuid())
+  pageId           String
+  psid             String
+  ruleId           String
+  nextIndex        Int
+  runAt            DateTime
+  status           String   @default("PENDING") // PENDING, PROCESSING, DONE, FAILED
+  refLogId         String?
   replyToCommentId String?
-  attempts        Int      @default(0)
-  lastError       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  attempts         Int      @default(0)
+  lastError        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([status, runAt])
   @@index([pageId, psid])
+}
+
+// ---------------------------------------------------------
+// BROADCAST V2 MODELS
+// ---------------------------------------------------------
+
+model MessengerTemplate {
+  id             String   @id @default(uuid())
+  pageId         String
+  name           String
+  category       String // UTILITY, MARKETING, AUTHENTICATION
+  approved       Boolean  @default(false)
+  metaTemplateId String?
+  contentJson    Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  page MessengerPage    @relation(fields: [pageId], references: [pageId])
+  jobs BroadcastJobV2[]
+
+  @@index([pageId, category])
+}
+
+model BroadcastJobV2 {
+  id          String    @id @default(uuid())
+  pageId      String
+  policyType  String // STANDARD, UTILITY
+  templateId  String?
+  status      String // PENDING, PROCESSING, COMPLETED, FAILED, CANCELED
+  scheduledAt DateTime?
+  payload     Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  page     MessengerPage      @relation(fields: [pageId], references: [pageId])
+  template MessengerTemplate? @relation(fields: [templateId], references: [id])
+  logs     BroadcastLogV2[]
+
+  @@index([pageId, status])
+  @@index([scheduledAt])
+}
+
+model BroadcastLogV2 {
+  id                String    @id @default(uuid())
+  jobId             String
+  userPsid          String
+  templateId        String?
+  messageCategory   String?
+  lastInteractionAt DateTime?
+  status            String // SENT, FAILED, BLOCKED
+  metaResponse      Json?
+  createdAt         DateTime  @default(now())
+
+  job BroadcastJobV2 @relation(fields: [jobId], references: [id])
+
+  @@index([jobId, status])
+  @@index([userPsid])
 }

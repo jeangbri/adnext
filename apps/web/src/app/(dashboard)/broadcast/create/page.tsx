@@ -32,6 +32,10 @@ export default function CreateBroadcastPage() {
     const [sendMode, setSendMode] = useState("IMMEDIATE")
     const [scheduledAt, setScheduledAt] = useState("")
 
+    // V2 State
+    const [templateId, setTemplateId] = useState("")
+    const [templates, setTemplates] = useState<any[]>([])
+
     useEffect(() => {
         const fetchPages = async () => {
             try {
@@ -45,11 +49,27 @@ export default function CreateBroadcastPage() {
         fetchPages()
     }, [])
 
+    useEffect(() => {
+        if (pageId && policyMode === 'UTILITY') {
+            fetch(`/api/messenger/templates?pageId=${pageId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) setTemplates(data)
+                })
+                .catch(err => console.error(err))
+        }
+    }, [pageId, policyMode])
+
     const handleCreate = async () => {
         if (!name || !pageId) return toast.error("Preencha o nome e a página")
-        if ((messageType === 'TEXT' || messageType === 'BUTTON_TEMPLATE') && !text) return toast.error("Digite a mensagem")
-        if (messageType === 'AUDIO' && !audioUrl) return toast.error("Insira a URL do áudio")
-        if (messageType === 'BUTTON_TEMPLATE' && buttons.length === 0) return toast.error("Adicione pelo menos um botão")
+
+        if (policyMode !== 'UTILITY') {
+            if ((messageType === 'TEXT' || messageType === 'BUTTON_TEMPLATE') && !text) return toast.error("Digite a mensagem")
+            if (messageType === 'AUDIO' && !audioUrl) return toast.error("Insira a URL do áudio")
+            if (messageType === 'BUTTON_TEMPLATE' && buttons.length === 0) return toast.error("Adicione pelo menos um botão")
+        } else {
+            if (!templateId) return toast.error("Selecione um template aprovado")
+        }
 
         setLoading(true)
         try {
@@ -57,6 +77,7 @@ export default function CreateBroadcastPage() {
             if (messageType === 'TEXT') payload = { text };
             else if (messageType === 'AUDIO') payload = { url: audioUrl };
             else if (messageType === 'BUTTON_TEMPLATE') payload = { text, buttons };
+            else if (messageType === 'TEMPLATE') payload = { templateId }; // V2 payload
 
             const res = await fetch('/api/broadcasts', {
                 method: 'POST',
@@ -70,7 +91,9 @@ export default function CreateBroadcastPage() {
                     policyMode,
                     tag: policyMode === 'TAGGED' ? tag : undefined,
                     messageType,
-                    payload
+                    payload,
+                    // V2 specific
+                    templateId: policyMode === 'UTILITY' ? templateId : undefined
                 })
             })
 
@@ -159,19 +182,29 @@ export default function CreateBroadcastPage() {
 
                             <div className="space-y-2">
                                 <Label>Política de Envio (Meta)</Label>
-                                <Select value={policyMode} onValueChange={setPolicyMode}>
+                                <Select value={policyMode} onValueChange={(val) => {
+                                    setPolicyMode(val);
+                                    if (val === 'UTILITY') {
+                                        setMessageType('TEMPLATE'); // Switch to template mode
+                                    }
+                                }}>
                                     <SelectTrigger className="bg-black/20 border-zinc-700">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="24H_ONLY">Janela 24h (Padrão e Seguro)</SelectItem>
-                                        <SelectItem value="TAGGED">Message Tags (Fora de 24h)</SelectItem>
+                                        {process.env.NEXT_PUBLIC_BROADCAST_V2 === 'true' && (
+                                            <SelectItem value="UTILITY">Utility (Fora de 24h - V2)</SelectItem>
+                                        )}
+                                        <SelectItem value="TAGGED">Message Tags (Legacy)</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <p className="text-xs text-zinc-500">
                                     {policyMode === '24H_ONLY'
                                         ? "Envia apenas para usuários que interagiram nas últimas 24h. Outros serão ignorados."
-                                        : "Permite enviar fora de 24h usando Tags. Use com cuidado para não ser bloqueado."}
+                                        : policyMode === 'UTILITY'
+                                            ? "Permite enviar fora de 24h usando Templates Aprovados (Utility)."
+                                            : "Permite enviar fora de 24h usando Tags. Use com cuidado para não ser bloqueado."}
                                 </p>
                             </div>
 
