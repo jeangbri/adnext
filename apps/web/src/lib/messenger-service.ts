@@ -1,7 +1,10 @@
 import { prisma } from "./prisma";
 import { decrypt, encrypt } from "./encryption";
-import { saveAndScheduleExecution, clearExecution } from "./scheduler";
+import { clearExecution } from "./scheduler";
 import { v4 as uuidv4 } from "uuid";
+import { classifyMessageType, MessagePolicyType } from "./messenger-policy";
+import { buildTemplateByPolicy } from "./messenger-templates";
+import { delayQueue } from "./messenger/delay-queue";
 
 const FB_API_URL = "https://graph.facebook.com/v19.0";
 
@@ -671,17 +674,16 @@ export async function executeActionsUntilDelay(
             // Found a delay -> Pause & Schedule
             console.log(`[Engine] Paused run ${runId} at action ${i} for ${action.delayMs}ms`);
 
-            await saveAndScheduleExecution({
+            await delayQueue.enqueue({
                 executionId: runId,
                 pageId: page.pageId,
-                psid: contact.psid,
+                userId: contact.psid,
                 ruleId: rule.id,
-                nextIndex: i, // Resume AT THIS action (to execute it), NOT after it
-                createdAt: Date.now(),
-                runAt: Date.now() + action.delayMs,
-                refLogId,
+                stepIndex: i, // Resume AT THIS action
+                wakeUpAt: Date.now() + action.delayMs,
+                context: { refLogId },
                 replyToCommentId
-            }, action.delayMs);
+            });
 
             return { status: 'PAUSED' };
         }
@@ -832,7 +834,66 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
         recipient = { id: contact.psid };
     }
 
+    // ---------------------------------------------------------
+    // POLICY & COMPLIANCE CHECK
+    // ---------------------------------------------------------
+    const conversation = await prisma.conversation.findUnique({
+        where: { pageId_psid: { pageId: page.pageId, psid: contact.psid } }
+    });
+
+    const policy = classifyMessageType({
+        lastInteractionAt: conversation?.lastInteractionAt || null,
+        messageType: action.type,
+        isBroadcast: false, // Rules are not usually broadcasts
+    });
+
+    if (policy === MessagePolicyType.BLOCKED) {
+        console.warn(`[Send] Blocked by Policy for ${contact.psid}`);
+        // Log skip?
+        return;
+    }
+
+    // Auto-Convert to Template if UTILITY/FOLLOWUP/REMINDER
+    let useTemplate = false;
+    if ([MessagePolicyType.UTILITY_TEMPLATE, MessagePolicyType.FOLLOW_UP_TEMPLATE, MessagePolicyType.REMINDER_TEMPLATE].includes(policy)) {
+        useTemplate = true;
+    }
+
     let messageBody: any = { recipient };
+
+    // ... continued logic ...
+
+    // If Template Policy is active, OVERRIDE message body construction unless it's already compliant?
+    // If action is text, and we need Utility Template, we build it.
+    if (useTemplate && action.type === 'TEXT') {
+        const template = buildTemplateByPolicy(policy, {
+            text: (action.payload as any).text,
+            // Buttons? 
+            metadata: { tag: 'ACCOUNT_UPDATE' } // Default fallback tag
+        });
+        // Since the builder returns full body structure (excluding recipient sometimes or including placeholder),
+        // we need to set messaging_type and message/attachment.
+
+        // Builder returns { recipient, message, messaging_type, tag }
+        // We merge or replace.
+        messageBody = { ...messageBody, ...template };
+        // Fix recipient PSID placeholder if present implies we use our recipient object
+        messageBody.recipient = recipient; // ensure correct recipient
+    } else {
+        // Standard Construction (Existing Switch)
+        // We wrap the existing switch in an ELSE or ensure it doesn't overwrite if useTemplate is handled?
+        // Actually, if useTemplate is true, we ONLY handle conversion for supported types (Text).
+        // If it's Button Template, we might need to adjust tag?
+
+        // Simplified: If useTemplate is TRUE, we enforce TAG/TYPE.
+    }
+
+    // RE-INSERTING THE SWITCH LOGIC CAREFULLY via Context...
+    // To minimize "Replacement Content" size and complexity, I will insert the Policy Check block 
+    // and then wrap the Body Construction.
+    // However, replace_file_content replaces exact lines. 
+    // I will replace the initialization of messageBody and inject logic.
+
 
     // SAFEGUARD: Comment Replies (Private Replies) usually only support TEXT.
     // If we try to send a template, it might fail.

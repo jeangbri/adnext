@@ -1,6 +1,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
+import { classifyMessageType, MessagePolicyType } from "./messenger-policy";
 
 // Helper to check 24h window
 function isWithin24h(lastMessageAt: Date) {
@@ -144,30 +145,21 @@ export async function processBroadcasts() {
                     continue;
                 }
 
-                const inside24h = isWithin24h(contact.lastSeenAt);
+                const policy = classifyMessageType({
+                    lastInteractionAt: contact.lastSeenAt,
+                    isBroadcast: true
+                });
 
-                if (campaign.policyMode === '24H_ONLY') {
-                    if (inside24h) {
-                        canSend = true;
-                    } else {
-                        canSend = false;
-                        skipReason = "OUTSIDE_24H";
-                    }
+                if (policy === MessagePolicyType.RESPONSE_24H) {
+                    canSend = true;
+                } else if (policy === MessagePolicyType.UTILITY_TEMPLATE || policy === MessagePolicyType.FOLLOW_UP_TEMPLATE) {
+                    // Outside 24h -> Smart Conversion
+                    canSend = true;
+                    messagingType = "MESSAGE_TAG";
+                    tag = campaign.tag || "ACCOUNT_UPDATE"; // Default to ACCOUNT_UPDATE if no tag provided
                 } else {
-                    // TAGGED
-                    if (inside24h) {
-                        canSend = true;
-                    } else {
-                        // Needs tag
-                        if (campaign.tag) {
-                            canSend = true;
-                            messagingType = "MESSAGE_TAG";
-                            tag = campaign.tag;
-                        } else {
-                            canSend = false;
-                            skipReason = "OUTSIDE_24H_NO_TAG";
-                        }
-                    }
+                    canSend = false;
+                    skipReason = "BLOCKED_BY_POLICY";
                 }
 
                 if (!canSend) {
