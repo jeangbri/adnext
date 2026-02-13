@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
 
     const rules = await prisma.automationRule.findMany({
         where: { workspaceId: workspace.id },
-        include: { actions: { orderBy: { order: 'asc' } } },
+        include: {
+            actions: { orderBy: { order: 'asc' } },
+            defaultForPages: true
+        },
         orderBy: { priority: 'desc' }
     });
 
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
     const workspace = await getPrimaryWorkspace(user.id, user.email || '');
     const body = await req.json();
 
-    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions, pageIds, triggerType, triggerConfig } = body;
+    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions, pageIds, triggerType, triggerConfig, isFallback } = body;
 
     try {
         const rule = await prisma.automationRule.create({
@@ -56,6 +59,17 @@ export async function POST(req: NextRequest) {
             },
             include: { actions: true }
         });
+
+        // If isFallback is true, set this rule as the default for the specified pages
+        if (isFallback && pageIds && pageIds.length > 0) {
+            await prisma.messengerPage.updateMany({
+                where: {
+                    pageId: { in: pageIds },
+                    workspaceId: workspace.id
+                },
+                data: { defaultRuleId: rule.id }
+            });
+        }
 
         return NextResponse.json(rule);
     } catch (e: any) {

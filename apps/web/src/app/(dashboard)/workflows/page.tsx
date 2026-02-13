@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Plus, Zap, Edit } from "lucide-react"
 import { DeleteRuleButton } from "./_components/delete-button"
@@ -96,7 +97,14 @@ export default function AutomationsPage() {
                             {rules.map((rule) => (
                                 <tr key={rule.id} className="hover:bg-white/5 transition-colors">
                                     <td className="px-6 py-4 font-medium text-white">
-                                        {rule.name}
+                                        <div className="flex items-center gap-2">
+                                            {rule.name}
+                                            {rule.defaultForPages && rule.defaultForPages.length > 0 && (
+                                                <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20 px-1 py-0 h-4">
+                                                    Fallback
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 max-w-xs truncate">
                                         <div className="flex flex-col gap-2">

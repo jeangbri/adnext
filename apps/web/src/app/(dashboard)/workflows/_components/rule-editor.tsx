@@ -186,6 +186,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
     const [isActive, setIsActive] = useState(rule?.isActive ?? true)
     const [priority, setPriority] = useState(rule?.priority || 0)
     const [cooldown, setCooldown] = useState(rule?.cooldownSeconds || 0)
+    const [isFallback, setIsFallback] = useState(mode === 'edit' && rule?.defaultForPages?.length > 0)
 
     // Match State
     const [matchType, setMatchType] = useState(rule?.matchType || 'CONTAINS')
@@ -438,6 +439,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
             isActive,
             priority: Number(priority),
             cooldownSeconds: Number(cooldown),
+            isFallback,
             matchType,
             matchOperator,
             keywords,
@@ -597,6 +599,14 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                     placeholder="Ex: Resposta Preços"
                                     className="bg-black/40 border-zinc-800 focus:border-primary/50"
                                 />
+                            </div>
+
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="fallback-mode" className="text-sm font-medium text-blue-100">Resposta Padrão (Fallback)</Label>
+                                    <p className="text-[10px] text-zinc-500">Executar quando nenhuma outra regra bater</p>
+                                </div>
+                                <Switch id="fallback-mode" checked={isFallback} onCheckedChange={setIsFallback} />
                             </div>
 
                             {/* TRIGGER CONFIG: COMMENT_ON_POST */}

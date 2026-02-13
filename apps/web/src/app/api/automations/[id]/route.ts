@@ -25,7 +25,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions, pageIds, triggerType, triggerConfig } = body;
+    const { name, keywords, matchType, matchOperator, priority, cooldownSeconds, isActive, actions, pageIds, triggerType, triggerConfig, isFallback } = body;
 
     try {
         // Transaction to update rule and replace actions
@@ -40,6 +40,23 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                     triggerConfig
                 }
             });
+
+            // Handle fallback assignment
+            if (isFallback !== undefined) {
+                if (isFallback) {
+                    if (pageIds && pageIds.length > 0) {
+                        await tx.messengerPage.updateMany({
+                            where: { pageId: { in: pageIds } },
+                            data: { defaultRuleId: params.id }
+                        });
+                    }
+                } else {
+                    await tx.messengerPage.updateMany({
+                        where: { defaultRuleId: params.id },
+                        data: { defaultRuleId: null }
+                    });
+                }
+            }
 
             // Delete old actions
             await tx.automationAction.deleteMany({

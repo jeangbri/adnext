@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function EditRulePage({ params }: EditRulePageProps) {
     const rule = await prisma.automationRule.findUnique({
         where: { id: params.id },
-        include: { actions: { orderBy: { order: 'asc' } } }
+        include: {
+            actions: { orderBy: { order: 'asc' } },
+            defaultForPages: true
+        }
     });
 
     if (!rule) {
