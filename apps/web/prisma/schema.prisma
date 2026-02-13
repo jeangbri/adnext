@@ -515,22 +515,43 @@ model ScheduledExecution {
 // BROADCAST V2 MODELS
 // ---------------------------------------------------------
 
+
 model MessengerTemplate {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
+  projectId      String?       // New: Isolated template library (optional link to workspace/project)
   pageId         String
   name           String
-  category       String // UTILITY, MARKETING, AUTHENTICATION
-  approved       Boolean  @default(false)
+  category       String        // UTILITY, MARKETING, AUTHENTICATION, BUSINESS, PROMOTIONAL, BROADCAST
+  approved       Boolean       @default(false)
   metaTemplateId String?
   contentJson    Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  variablesJson  Json?         // New: Stores variable definitions
+  policy         String        @default("24H") // New: 24H, UTILITY, TAGGED
+  status         String        @default("ACTIVE") // New: ACTIVE, DISABLED
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  page MessengerPage    @relation(fields: [pageId], references: [pageId])
-  jobs BroadcastJobV2[]
+  page         MessengerPage @relation(fields: [pageId], references: [pageId])
+  jobs         BroadcastJobV2[]
+  templateLogs TemplateLog[]
 
   @@index([pageId, category])
 }
+
+model TemplateLog {
+  id           String            @id @default(uuid())
+  templateId   String
+  recipientId  String
+  policyUsed   String
+  status       String
+  responseMeta Json?
+  createdAt    DateTime          @default(now())
+
+  template MessengerTemplate @relation(fields: [templateId], references: [id])
+
+  @@index([templateId, status])
+}
+
 
 model BroadcastJobV2 {
   id          String    @id @default(uuid())
