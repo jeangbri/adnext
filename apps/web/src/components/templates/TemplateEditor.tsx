@@ -12,7 +12,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function TemplateEditor({ pageId, projectId, onSave }: any) {
@@ -20,7 +20,6 @@ export default function TemplateEditor({ pageId, projectId, onSave }: any) {
     const [category, setCategory] = useState("UTILITY");
     const [policy, setPolicy] = useState("UTILITY");
     const [content, setContent] = useState("");
-    const { toast } = useToast();
 
     const handleSave = async () => {
         try {
@@ -40,21 +39,21 @@ export default function TemplateEditor({ pageId, projectId, onSave }: any) {
 
             if (!response.ok) throw new Error("Failed");
 
-            toast({ title: "Template Created" });
+            toast.success("Template Created");
             onSave();
         } catch (e) {
-            toast({ title: "Error", variant: "destructive" });
+            toast.error("Error creating template");
         }
     };
 
     const extractVariables = (text: string) => {
         // Extract {{var}}
         const regex = /{{(.*?)}}/g;
-        const matches = [...text.matchAll(regex)];
         const vars: any = {};
-        matches.forEach(m => {
-            vars[m[1]] = "string";
-        });
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            vars[match[1]] = "string";
+        }
         return vars;
     };
 
