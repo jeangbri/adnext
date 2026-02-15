@@ -4,7 +4,7 @@ import { clearExecution } from "./scheduler";
 import { v4 as uuidv4 } from "uuid";
 import { classifyMessageType, MessagePolicyType } from "./messenger-policy";
 import { buildTemplateByPolicy } from "./messenger-templates";
-import { delayQueue } from "./messenger/delay-queue";
+import { saveAndScheduleExecution } from "./scheduler";
 
 const FB_API_URL = "https://graph.facebook.com/v19.0";
 
@@ -709,16 +709,19 @@ export async function executeActionsUntilDelay(
             // Found a delay -> Pause & Schedule
             console.log(`[Engine] Paused run ${runId} at action ${i} for ${action.delayMs}ms`);
 
-            await delayQueue.enqueue({
+            // Use Postgres Scheduler (Unified with Execution Processor)
+            // Replaces Redis queue which is not being consumed by the current processor
+            await saveAndScheduleExecution({
                 executionId: runId,
                 pageId: page.pageId,
-                userId: contact.psid,
+                psid: contact.psid,
                 ruleId: rule.id,
-                stepIndex: i, // Resume AT THIS action
-                wakeUpAt: Date.now() + action.delayMs,
-                context: { refLogId },
+                nextIndex: i, // Resume AT THIS action
+                createdAt: Date.now(), // Ignored by saver
+                runAt: Date.now() + action.delayMs, // Re-calculated by saver
+                refLogId: refLogId,
                 replyToCommentId
-            });
+            }, action.delayMs);
 
             return { status: 'PAUSED' };
         }
