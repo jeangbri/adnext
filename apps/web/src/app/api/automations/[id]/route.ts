@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+
 import { createClient } from "@/lib/supabase/server";
 import { getPrimaryWorkspace } from "@/lib/workspace";
+
 
 export const runtime = "nodejs";
 
@@ -82,7 +84,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             });
         });
 
+
+
+
         return NextResponse.json(updated);
+
     } catch (e: any) {
         console.error(e);
         return NextResponse.json({ error: e.message }, { status: 500 });
@@ -95,10 +101,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
+
         await prisma.automationRule.delete({
             where: { id: params.id }
         });
+
+
+
         return NextResponse.json({ success: true });
+
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }

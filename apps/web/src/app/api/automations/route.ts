@@ -1,7 +1,9 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { getPrimaryWorkspace } from "@/lib/workspace";
+
 
 export const runtime = "nodejs";
 
@@ -71,7 +73,11 @@ export async function POST(req: NextRequest) {
             });
         }
 
+
+
+
         return NextResponse.json(rule);
+
     } catch (e: any) {
         console.error(e);
         return NextResponse.json({ error: e.message }, { status: 500 });

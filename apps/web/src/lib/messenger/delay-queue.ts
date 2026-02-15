@@ -2,9 +2,17 @@
 import { Redis } from '@upstash/redis';
 
 // Use env vars or defaults (checking process.env for client-side safety if needed, but this is server-side lib)
+// Support both Vercel KV and Standalone Upstash
+const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
+const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+
+if (!url || !token) {
+    console.error("[DelayQueue] Missing Upstash/Vercel KV credentials. Set UPSTASH_REDIS_REST_URL/TOKEN or KV_REST_API_URL/TOKEN.");
+}
+
 const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL || '',
-    token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+    url: url,
+    token: token,
 });
 
 export interface DelayJob {
