@@ -285,8 +285,8 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
     // FLOW JUMP OVERRIDE
     // ---------------------------------------------------------
     if (text.startsWith("FLOW_JUMP::")) {
-        const target = text.split("::")[1];
-        console.log(`[Engine] FLOW_JUMP detected to: ${target}`);
+        const target = text.split("::")[1].trim();
+        console.log(`[Engine] FLOW_JUMP detected to: '${target}' (Workspace: ${page.workspaceId})`);
 
         // Try to find rule by ID or Name
         const rule = await prisma.automationRule.findFirst({
@@ -305,7 +305,7 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
             await executeRule(rule, page, contact, incomingLogId, text);
             return;
         } else {
-            console.warn(`[Engine] FLOW_JUMP failed: Rule '${target}' not found or inactive.`);
+            console.warn(`[Engine] FLOW_JUMP failed: Rule '${target}' not found or inactive in workspace ${page.workspaceId}.`);
         }
     }
 
