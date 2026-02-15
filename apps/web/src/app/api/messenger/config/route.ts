@@ -42,25 +42,23 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Configure Messenger Profile via Graph API
-        const token = decrypt(page.pageAccessToken);
-        const url = `https://graph.facebook.com/v19.0/me/messenger_profile?access_token=${token}`;
+        const tokenVal = decrypt(page.pageAccessToken);
+        const url = `https://graph.facebook.com/v19.0/me/messenger_profile?access_token=${tokenVal}`;
 
         const fbBody: any = {};
 
-        if (getStartedPayload !== undefined) {
-            // Only set if defined, allow empty string to clear? 
-            // Graph API expects a valid payload or DELETE request to remove.
-            // For simplicity, we just set what we have.
-            if (getStartedPayload) {
-                fbBody.get_started = { payload: getStartedPayload };
-            }
+        if (getStartedPayload) {
+            fbBody.get_started = { payload: getStartedPayload };
         }
 
-        if (iceBreakers && Array.isArray(iceBreakers)) {
-            fbBody.ice_breakers = iceBreakers.map((ib: any) => ({
-                question: ib.question,
-                payload: ib.payload
-            }));
+        if (iceBreakers && Array.isArray(iceBreakers) && iceBreakers.length > 0) {
+            fbBody.ice_breakers = [{
+                call_to_actions: iceBreakers.map((ib: any) => ({
+                    question: ib.question,
+                    payload: ib.payload
+                })),
+                locale: "default"
+            }];
         }
 
         if (Object.keys(fbBody).length > 0) {
