@@ -1260,19 +1260,6 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
 
 
 async function upsertContact(page: any, psid: string) {
-    // Check if exists
-    let contact = await prisma.contact.findUnique({
-        where: { pageId_psid: { pageId: page.pageId, psid } }
-    });
-
-    // If exists, just update last seen
-    if (contact) {
-        return prisma.contact.update({
-            where: { id: contact.id },
-            data: { lastSeenAt: new Date() }
-        });
-    }
-
     // Fetch Profile from Graph
     let profile: any = {};
     try {
@@ -1286,17 +1273,27 @@ async function upsertContact(page: any, psid: string) {
         console.error("Failed to fetch profile", e);
     }
 
-    // Create
-    return prisma.contact.create({
-        data: {
-            workspaceId: page.workspaceId,
-            pageId: page.pageId,
-            psid: psid,
-            firstName: profile.first_name || "Unknown",
-            lastName: profile.last_name || "",
-            profilePicUrl: profile.profile_pic || "",
-            lastSeenAt: new Date()
-        }
-    });
+    // Create or Update (Upsert to handle race conditions)
+    try {
+        return await prisma.contact.upsert({
+            where: { pageId_psid: { pageId: page.pageId, psid } },
+            update: { lastSeenAt: new Date() },
+            create: {
+                workspaceId: page.workspaceId,
+                pageId: page.pageId,
+                psid: psid,
+                firstName: profile.first_name || "Unknown",
+                lastName: profile.last_name || "",
+                profilePicUrl: profile.profile_pic || "",
+                lastSeenAt: new Date()
+            }
+        });
+    } catch (e) {
+        // If upsert fails (rare race condition edge case even with upsert), try find again
+        console.warn("Contact upsert failed, retrying find...", e);
+        return prisma.contact.findUniqueOrThrow({
+            where: { pageId_psid: { pageId: page.pageId, psid } }
+        });
+    }
 }
 
