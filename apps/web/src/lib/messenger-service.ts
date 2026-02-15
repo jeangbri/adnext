@@ -289,7 +289,7 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
         console.log(`[Engine] FLOW_JUMP detected to: '${target}' (Workspace: ${page.workspaceId})`);
 
         // Try to find rule by ID or Name
-        const rule = await prisma.automationRule.findFirst({
+        let rule = await prisma.automationRule.findFirst({
             where: {
                 workspaceId: page.workspaceId,
                 isActive: true,
@@ -301,11 +301,46 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
             include: { actions: { orderBy: { order: 'asc' } } }
         });
 
+        // FALLBACK: If specific rule not found, try heuristics (Smart Recovery)
+        // This handles cases where ID changed (DB reset) but user expects "Welcome" flow.
+        if (!rule) {
+            console.warn(`[Engine] FLOW_JUMP target '${target}' not found. Attempting Smart Recovery...`);
+
+            // 1. Try finding a rule named "Welcome" or "Início" or "Start"
+            const smartRule = await prisma.automationRule.findFirst({
+                where: {
+                    workspaceId: page.workspaceId,
+                    isActive: true,
+                    name: {
+                        in: ['Welcome', 'welcome', 'Início', 'Inicio', 'Começar', 'Start', 'Bem-vindo']
+                    }
+                },
+                include: { actions: { orderBy: { order: 'asc' } } }
+            });
+
+            if (smartRule) {
+                rule = smartRule;
+                console.log(`[Engine] Smart Recovery: Using rule '${rule.name}' (${rule.id}) instead of '${target}'`);
+            }
+
+            // 2. If still not found, try Page Default Rule
+            if (!rule && (page as any).defaultRuleId) {
+                const defaultRule = await prisma.automationRule.findUnique({
+                    where: { id: (page as any).defaultRuleId },
+                    include: { actions: { orderBy: { order: 'asc' } } }
+                });
+                if (defaultRule) {
+                    rule = defaultRule;
+                    console.log(`[Engine] Smart Recovery: Using Default Rule '${rule.name}' (${rule.id})`);
+                }
+            }
+        }
+
         if (rule) {
             await executeRule(rule, page, contact, incomingLogId, text);
             return;
         } else {
-            console.warn(`[Engine] FLOW_JUMP failed: Rule '${target}' not found or inactive in workspace ${page.workspaceId}.`);
+            console.warn(`[Engine] FLOW_JUMP failed: Rule '${target}' not found or inactive in workspace ${page.workspaceId}. No fallback available.`);
         }
     }
 
