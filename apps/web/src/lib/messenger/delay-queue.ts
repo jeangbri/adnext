@@ -40,12 +40,21 @@ export const delayQueue = {
         // Better: Store job details in a HASH (key: executionId), and executionId in ZSET (score: wakeUpAt).
 
         // 1. Store Job Data
-        await redis.hset(`messenger:jobs:${job.executionId}`, job as any);
+        // Ensure job is fully serializable and check for undefined values
+        const payload = JSON.parse(JSON.stringify(job)); // clean undefineds
+        if (!payload.executionId) throw new Error("Job missing executionId");
 
-        // 2. Schedule in ZSET
-        await redis.zadd(QUEUE_KEY, { score: job.wakeUpAt, member: job.executionId });
-
-        console.log(`[DelayQueue] Enqueued job ${job.executionId} for ${new Date(job.wakeUpAt).toISOString()}`);
+        try {
+            await redis.hset(`messenger:jobs:${job.executionId}`, payload);
+            await redis.zadd(QUEUE_KEY, { score: job.wakeUpAt, member: job.executionId });
+            console.log(`[DelayQueue] Enqueued job ${job.executionId} for ${new Date(job.wakeUpAt).toISOString()}`);
+        } catch (e) {
+            console.error("[DelayQueue] Redis Error (Enqueue)", e);
+            // Fallback: If Redis fails, we probably cant delay easily. 
+            // We should maybe throw to let the caller handle immediate execution or retry?
+            // But caller (messenger-service) expects void.
+            throw e;
+        }
     },
 
     /**
