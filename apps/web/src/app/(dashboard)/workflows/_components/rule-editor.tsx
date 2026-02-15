@@ -45,7 +45,14 @@ function DelayInput({ valueMs, onChange }: { valueMs: number, onChange: (ms: num
     const [unit, setUnit] = useState<'seconds' | 'minutes' | 'hours'>('minutes')
     const [value, setValue] = useState(0)
 
+    const isInternalUpdate = useRef(false)
+
     useEffect(() => {
+        if (isInternalUpdate.current) {
+            isInternalUpdate.current = false
+            return
+        }
+
         if (valueMs === 0) {
             setValue(0)
             return
@@ -61,13 +68,15 @@ function DelayInput({ valueMs, onChange }: { valueMs: number, onChange: (ms: num
             setUnit('seconds')
             setValue(Math.floor(valueMs / 1000))
         }
-    }, [valueMs]) // Only on mount or external change? Actually dependency on valueMs handles "external" updates correctly.
+    }, [valueMs])
 
     const update = (v: number, u: string) => {
         let ms = 0
         if (u === 'seconds') ms = v * 1000
         if (u === 'minutes') ms = v * 60000
         if (u === 'hours') ms = v * 3600000
+
+        isInternalUpdate.current = true
         onChange(ms)
         setValue(v)
         setUnit(u as any)
