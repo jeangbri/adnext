@@ -193,9 +193,7 @@ export default function CreateBroadcastPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="24H_ONLY">Janela 24h (Padrão e Seguro)</SelectItem>
-                                        {process.env.NEXT_PUBLIC_BROADCAST_V2 === 'true' && (
-                                            <SelectItem value="UTILITY">Utility (Fora de 24h - V2)</SelectItem>
-                                        )}
+                                        <SelectItem value="UTILITY">Utility (Fora de 24h - V2)</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <p className="text-xs text-zinc-500">
