@@ -218,27 +218,35 @@ export default function CreateBroadcastPage() {
                             <div className="space-y-2">
                                 <Label>Tipo de Mensagem</Label>
                                 <div className="flex gap-2">
-                                    <Button
-                                        variant={messageType === 'TEXT' ? 'default' : 'outline'}
-                                        onClick={() => setMessageType('TEXT')}
-                                        className="flex-1"
-                                    >
-                                        Texto
-                                    </Button>
-                                    <Button
-                                        variant={messageType === 'BUTTON_TEMPLATE' ? 'default' : 'outline'}
-                                        onClick={() => setMessageType('BUTTON_TEMPLATE')}
-                                        className="flex-1"
-                                    >
-                                        Texto + Botões
-                                    </Button>
-                                    <Button
-                                        variant={messageType === 'AUDIO' ? 'default' : 'outline'}
-                                        onClick={() => setMessageType('AUDIO')}
-                                        className="flex-1"
-                                    >
-                                        Áudio
-                                    </Button>
+                                    {policyMode !== 'UTILITY' ? (
+                                        <>
+                                            <Button
+                                                variant={messageType === 'TEXT' ? 'default' : 'outline'}
+                                                onClick={() => setMessageType('TEXT')}
+                                                className="flex-1"
+                                            >
+                                                Texto
+                                            </Button>
+                                            <Button
+                                                variant={messageType === 'BUTTON_TEMPLATE' ? 'default' : 'outline'}
+                                                onClick={() => setMessageType('BUTTON_TEMPLATE')}
+                                                className="flex-1"
+                                            >
+                                                Texto + Botões
+                                            </Button>
+                                            <Button
+                                                variant={messageType === 'AUDIO' ? 'default' : 'outline'}
+                                                onClick={() => setMessageType('AUDIO')}
+                                                className="flex-1"
+                                            >
+                                                Áudio
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button variant="default" className="flex-1 bg-[#0084FF]/20 text-[#0084FF] border-[#0084FF]/50 cursor-default hover:bg-[#0084FF]/20">
+                                            Template Aprovado (Requerido)
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
 
