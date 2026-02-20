@@ -1,0 +1,14 @@
+Log de Erros:
+Erro: (#10) Essa mensagem foi enviada fora do espaço de tempo permitido. Saiba mais sobre a nova política aqui:  https://developers.facebook.com/docs/messenger-platform/policy-overview
+Raw: null
+Erro: (#10) Essa mensagem foi enviada fora do espaço de tempo permitido. Saiba mais sobre a nova política aqui:  https://developers.facebook.com/docs/messenger-platform/policy-overview
+Raw: null
+Erro: (#10) Essa mensagem foi enviada fora do espaço de tempo permitido. Saiba mais sobre a nova política aqui:  https://developers.facebook.com/docs/messenger-platform/policy-overview
+Raw: null
+
+Status Db Inicial: SENDING
+Total Recipients na Fila de DB: 1213
+Pendentes: 929
+Enviados: 74
+Falhas: 210
+Pulados: 0

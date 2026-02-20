@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     try {
         // CHECK IF BROADCAST V2 (Utility Mode)
-        if (policyMode === 'UTILITY' && process.env.NEXT_PUBLIC_BROADCAST_V2 === 'true') {
+        if (policyMode === 'UTILITY') {
             const job = await prisma.broadcastJobV2.create({
                 data: {
                     pageId,
