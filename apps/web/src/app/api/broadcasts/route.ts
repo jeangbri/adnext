@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
                 workspaceId: workspace.id,
                 pageId,
                 name,
-                status: sendMode === 'IMMEDIATE' ? 'SCHEDULED' : 'DRAFT', // IMMEDIATE goes to SCHEDULED so runner picks it up asap
+                status: 'SCHEDULED', // Both IMMEDIATE and SCHEDULED go to SCHEDULED so runner picks it up
                 audienceType,
                 sendMode,
                 scheduledAt: sendMode === 'IMMEDIATE' ? new Date() : new Date(scheduledAt),
