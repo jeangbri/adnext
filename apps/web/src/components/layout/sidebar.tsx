@@ -17,7 +17,8 @@ import {
     LayoutTemplate,
     HelpCircle,
     LogOut,
-    Settings
+    Settings,
+    Phone
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -36,6 +37,7 @@ const sidebarItems = [
         items: [
             { label: "Regras", href: "/workflows", icon: Zap },
             { label: "Broadcast", href: "/broadcast", icon: Trophy },
+            { label: "Leads", href: "/leads", icon: Phone },
             { label: "Logs", href: "/logs", icon: MessageSquare },
         ]
     },

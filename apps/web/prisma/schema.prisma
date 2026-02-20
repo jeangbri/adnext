@@ -127,6 +127,7 @@ model Contact {
   firstSeenAt     DateTime @default(now())
   lastSeenAt      DateTime @default(now())
   lastMessageText String?
+  phone           String?
   tags            Json? // ["tag1", "tag2"]
 
   workspace      Workspace       @relation(fields: [workspaceId], references: [id])

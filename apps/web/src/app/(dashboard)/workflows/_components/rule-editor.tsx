@@ -857,6 +857,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                     <SelectItem value="any">Qualquer</SelectItem>
                                                     <SelectItem value="keyword">Texto Exato</SelectItem>
                                                     <SelectItem value="number">Número</SelectItem>
+                                                    <SelectItem value="phone">Telefone</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>

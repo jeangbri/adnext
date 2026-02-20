@@ -37,7 +37,7 @@ interface FlowStep {
     id: string;
     type: string; // 'question'
     message: string;
-    expectedType?: string;
+    expectedType?: string; // 'keyword' | 'number' | 'phone' | 'any'
     conditions: FlowCondition[];
     fallback?: { message: string };
     expirationSeconds?: number;
@@ -1182,12 +1182,59 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
     if (state.expectedType === 'number') {
         const num = parseFloat(input.replace(',', '.'));
         if (isNaN(num)) {
-            // Not a number -> Fallback immediately
             console.log(`[Flow] Expected number, got '${input}'. Sending fallback.`);
             if (currentStep.fallback) {
                 await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Por favor, digite um número válido." } }, refLogId);
             }
+            return;
+        }
+    }
+
+    // 1b. Validation (Phone Check) + Save to Contact
+    if (state.expectedType === 'phone') {
+        // Normalize: remove spaces, dashes, parens, plus sign
+        const cleaned = input.replace(/[\s\-\(\)\+\.]/g, '');
+        // Accept Brazilian phone formats: 11999999999, 5511999999999, etc. (10-13 digits)
+        const isValidPhone = /^\d{10,13}$/.test(cleaned);
+
+        if (!isValidPhone) {
+            console.log(`[Flow] Expected phone, got '${input}'. Sending fallback.`);
+            if (currentStep.fallback) {
+                await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Por favor, digite um número de telefone válido. Ex: (11) 99999-9999" } }, refLogId);
+            }
             return; // State remains active
+        }
+
+        // Format phone number for storage
+        let formattedPhone = cleaned;
+        if (!formattedPhone.startsWith('55') && formattedPhone.length <= 11) {
+            formattedPhone = '55' + formattedPhone;
+        }
+
+        // Save phone to Contact
+        try {
+            await prisma.contact.update({
+                where: { id: contact.id },
+                data: { phone: formattedPhone }
+            });
+            console.log(`[Flow] Phone saved for contact ${contact.id}: ${formattedPhone}`);
+        } catch (e) {
+            console.error(`[Flow] Failed to save phone for contact ${contact.id}`, e);
+        }
+
+        // Also save the name if we have firstName from the contact profile
+        // The name is already saved via upsertContact (Facebook profile), 
+        // but we store the metadata for reference
+        try {
+            const metadata = (state.metadata as any) || {};
+            metadata.capturedPhone = formattedPhone;
+            metadata.capturedAt = new Date().toISOString();
+            await (prisma as any).conversationState.update({
+                where: { id: state.id },
+                data: { metadata }
+            });
+        } catch (e) {
+            console.warn(`[Flow] Failed to update state metadata`, e);
         }
     }
 
@@ -1203,10 +1250,14 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
                     matchedCondition = cond;
                     break;
                 }
+            } else if (state.expectedType === 'phone') {
+                // Phone: any valid phone matches '*' condition, or match specific
+                if (cond.match === '*' || cond.match === 'any') {
+                    matchedCondition = cond;
+                    break;
+                }
             } else {
                 // String Match
-                // If condition match is empty, does it mean "Any"? For now, assume explicit match needed.
-                // Maybe add support for "*" as wildcard
                 if (input.toLowerCase() === cond.match.toLowerCase() || cond.match === '*') {
                     matchedCondition = cond;
                     break;

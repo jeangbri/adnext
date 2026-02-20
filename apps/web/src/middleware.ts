@@ -66,7 +66,7 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Guard protected routes
-    if (!user && (request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/workflows') || request.nextUrl.pathname.startsWith('/settings'))) {
+    if (!user && (request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/workflows') || request.nextUrl.pathname.startsWith('/settings') || request.nextUrl.pathname.startsWith('/leads'))) {
         const url = request.nextUrl.clone()
         url.pathname = '/entrar'
         return NextResponse.redirect(url)
