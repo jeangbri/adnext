@@ -196,34 +196,16 @@ export default function CreateBroadcastPage() {
                                         {process.env.NEXT_PUBLIC_BROADCAST_V2 === 'true' && (
                                             <SelectItem value="UTILITY">Utility (Fora de 24h - V2)</SelectItem>
                                         )}
-                                        <SelectItem value="TAGGED">Message Tags (Legacy)</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <p className="text-xs text-zinc-500">
                                     {policyMode === '24H_ONLY'
                                         ? "Envia apenas para usuários que interagiram nas últimas 24h. Outros serão ignorados."
-                                        : policyMode === 'UTILITY'
-                                            ? "Permite enviar fora de 24h usando Templates Aprovados (Utility)."
-                                            : "Permite enviar fora de 24h usando Tags. Use com cuidado para não ser bloqueado."}
+                                        : "Permite enviar fora de 24h usando Templates Aprovados (Utility)."}
                                 </p>
                             </div>
 
-                            {policyMode === 'TAGGED' && (
-                                <div className="space-y-2 p-4 bg-yellow-500/10 rounded-md border border-yellow-500/20">
-                                    <Label className="text-yellow-500">Selecione a Tag</Label>
-                                    <Select value={tag} onValueChange={setTag}>
-                                        <SelectTrigger className="bg-black/20 border-zinc-700">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ACCOUNT_UPDATE">CONFIRMED_EVENT_UPDATE (Lembretes de evento)</SelectItem>
-                                            <SelectItem value="POST_PURCHASE_UPDATE">POST_PURCHASE_UPDATE (Atualização de pedido)</SelectItem>
-                                            <SelectItem value="ACCOUNT_UPDATE">ACCOUNT_UPDATE (Atualização de conta)</SelectItem>
-                                            <SelectItem value="HUMAN_AGENT">HUMAN_AGENT (Resposta humana)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
+
                         </CardContent>
                     </Card>
 
@@ -344,6 +326,23 @@ export default function CreateBroadcastPage() {
                                         onChange={e => setAudioUrl(e.target.value)}
                                     />
                                     <p className="text-xs text-zinc-500">O arquivo deve ser público e acessível pela Meta.</p>
+                                </div>
+                            )}
+
+                            {messageType === 'TEMPLATE' && (
+                                <div className="space-y-2">
+                                    <Label>Selecione o Template Aprovado</Label>
+                                    <Select value={templateId} onValueChange={setTemplateId}>
+                                        <SelectTrigger className="bg-black/20 border-zinc-700">
+                                            <SelectValue placeholder="Escolha um template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {templates.length > 0 ? templates.map(t => (
+                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                            )) : <SelectItem value="none" disabled>Nenhum template encontrado para esta página</SelectItem>}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-zinc-500">Apenas templates aprovados pela Meta podem ser usados fora da janela de 24h.</p>
                                 </div>
                             )}
                         </CardContent>
