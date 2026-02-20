@@ -336,19 +336,77 @@ export default function CreateBroadcastPage() {
                             )}
 
                             {messageType === 'TEMPLATE' && (
-                                <div className="space-y-2">
-                                    <Label>Selecione o Template Aprovado</Label>
+                                <div className="space-y-4">
+                                    <Label>Selecione o Template Aprovado pela Meta</Label>
                                     <Select value={templateId} onValueChange={setTemplateId}>
                                         <SelectTrigger className="bg-black/20 border-zinc-700">
                                             <SelectValue placeholder="Escolha um template" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {templates.length > 0 ? templates.map(t => (
-                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                            {templates.length > 0 ? templates.map((t: any) => (
+                                                <SelectItem key={t.id} value={t.id}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{t.name}</span>
+                                                        {t.tag && (
+                                                            <span className="text-[10px] bg-zinc-700 text-zinc-300 px-1.5 py-0.5 rounded">
+                                                                {t.tag}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
                                             )) : <SelectItem value="none" disabled>Nenhum template encontrado para esta página</SelectItem>}
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-xs text-zinc-500">Apenas templates aprovados pela Meta podem ser usados fora da janela de 24h.</p>
+
+                                    {/* Selected template preview */}
+                                    {templateId && templates.length > 0 && (() => {
+                                        const selected = templates.find((t: any) => t.id === templateId);
+                                        if (!selected) return null;
+                                        return (
+                                            <div className="p-4 rounded-lg bg-[#0084FF]/5 border border-[#0084FF]/20 space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-white text-sm">{selected.name}</span>
+                                                    <Badge variant="outline" className="text-[10px]">
+                                                        {selected.category}
+                                                    </Badge>
+                                                    {selected.tag && (
+                                                        <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-500">
+                                                            {selected.tag}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {selected.description && (
+                                                    <p className="text-xs text-zinc-400">{selected.description}</p>
+                                                )}
+                                                {selected.contentJson?.template && (
+                                                    <div className="mt-2 p-3 bg-black/30 rounded text-xs text-zinc-300 font-mono">
+                                                        {selected.contentJson.template}
+                                                    </div>
+                                                )}
+                                                {selected.contentJson?.variables?.length > 0 && (
+                                                    <div className="flex gap-1 flex-wrap mt-1">
+                                                        <span className="text-[10px] text-zinc-500">Variáveis:</span>
+                                                        {selected.contentJson.variables.map((v: string) => (
+                                                            <span key={v} className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">
+                                                                {`{{${v}}}`}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <div className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+                                        <div className="flex items-start gap-2">
+                                            <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
+                                            <div className="text-xs text-yellow-500/80 space-y-1">
+                                                <p className="font-semibold text-yellow-500">Política da Meta (Fev 2026)</p>
+                                                <p>Message Tags foram deprecadas. Para enviar fora da janela de 24h, use templates Utility (transacionais) aprovados.</p>
+                                                <p>Templates de Marketing só podem ser enviados dentro da janela de 24h.</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </CardContent>
