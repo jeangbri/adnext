@@ -1190,82 +1190,107 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
         }
     }
 
-    // 1b. Validation (Phone Check) + Save to Contact
-    if (state.expectedType === 'phone') {
-        // Normalize: remove spaces, dashes, parens, plus sign
-        const cleaned = input.replace(/[\s\-\(\)\+\.]/g, '');
-        // Accept Brazilian phone formats: 11999999999, 5511999999999, etc. (10-13 digits)
-        const isValidPhone = /^\d{10,13}$/.test(cleaned);
+    // 1b. Validation & Data Extraction (Phone, Name, or Both)
+    if (['phone', 'name', 'name_phone'].includes(state.expectedType!)) {
+        let extractedPhone = "";
+        let extractedName = "";
 
-        if (!isValidPhone) {
-            console.log(`[Flow] Expected phone, got '${input}'. Sending fallback.`);
+        // Normalize string for phone search
+        const phoneRegex = /(?:\+?\d{1,3}[\s-]?)?\(?\d{2}\)?[\s-]?\d{4,5}[\s-]?\d{4}/g;
+        const matches = input.match(phoneRegex);
+        if (matches && matches.length > 0) {
+            const potentialPhone = matches[0].replace(/\D/g, '');
+            if (potentialPhone.length >= 10 && potentialPhone.length <= 13) {
+                extractedPhone = potentialPhone;
+                extractedName = input.replace(matches[0], '').replace(/[^a-zA-Z\sÀ-ÿ]/g, '').trim();
+            }
+        }
+
+        // Fallback: if no regex match, just count digits
+        if (!extractedPhone) {
+            const digitsOnly = input.replace(/\D/g, '');
+            if (digitsOnly.length >= 10 && digitsOnly.length <= 13) {
+                extractedPhone = digitsOnly;
+                extractedName = input.replace(/\d/g, '').replace(/[^a-zA-Z\sÀ-ÿ]/g, '').trim();
+            } else {
+                extractedName = input.replace(/[^a-zA-Z\sÀ-ÿ]/g, '').trim();
+            }
+        }
+
+        if (extractedPhone && !extractedPhone.startsWith('55') && extractedPhone.length <= 11) {
+            extractedPhone = '55' + extractedPhone;
+        }
+
+        // Clean common noise words from name
+        const stopWords = ['meu', 'nome', 'é', 'e', 'numero', 'número', 'telefone', 'celular', 'zap', 'whatsapp', 'o', 'seu', 'ola', 'olá', 'oi', 'aqui', 'tudo', 'bem'];
+        const stopWordsRegex = new RegExp(`(?:\\s|^)(${stopWords.join('|')})(?=\\s|$)`, 'gi');
+
+        let cleanName = extractedName;
+        for (let i = 0; i < 3; i++) {
+            cleanName = cleanName.replace(stopWordsRegex, ' ');
+        }
+        cleanName = cleanName.replace(/\s+/g, ' ').trim();
+
+        let failed = false;
+        const updateData: any = {};
+
+        if (state.expectedType === 'phone') {
+            if (!extractedPhone) failed = true;
+            else {
+                updateData.phone = extractedPhone;
+                if (cleanName.length >= 2) {
+                    const parts = cleanName.split(/\s+/);
+                    updateData.firstName = parts[0];
+                    updateData.lastName = parts.slice(1).join(' ') || '';
+                }
+            }
+        } else if (state.expectedType === 'name') {
+            if (cleanName.length < 2) failed = true;
+            else {
+                const parts = cleanName.split(/\s+/);
+                updateData.firstName = parts[0];
+                updateData.lastName = parts.slice(1).join(' ') || '';
+                if (extractedPhone) updateData.phone = extractedPhone;
+            }
+        } else if (state.expectedType === 'name_phone') {
+            if (!extractedPhone || cleanName.length < 2) failed = true;
+            else {
+                updateData.phone = extractedPhone;
+                const parts = cleanName.split(/\s+/);
+                updateData.firstName = parts[0];
+                updateData.lastName = parts.slice(1).join(' ') || '';
+            }
+        }
+
+        if (failed) {
+            console.log(`[Flow] Expected ${state.expectedType}, got '${input}'. Sending fallback.`);
             if (currentStep.fallback) {
-                await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Por favor, digite um número de telefone válido. Ex: (11) 99999-9999" } }, refLogId);
+                let msg = currentStep.fallback.message || "Valor inválido fornecido.";
+                if (state.expectedType === 'phone') msg = currentStep.fallback.message || "Por favor, digite um número de telefone válido. Ex: (11) 99999-9999";
+                if (state.expectedType === 'name_phone') msg = currentStep.fallback.message || "Por favor, informe seu NOME junto com o seu TELEFONE.";
+                if (state.expectedType === 'name') msg = currentStep.fallback.message || "Por favor, digite um nome válido.";
+
+                await sendAction(page, contact, { type: 'TEXT', payload: { text: msg } }, refLogId);
             }
             return; // State remains active
         }
 
-        // Format phone number for storage
-        let formattedPhone = cleaned;
-        if (!formattedPhone.startsWith('55') && formattedPhone.length <= 11) {
-            formattedPhone = '55' + formattedPhone;
-        }
-
-        // Save phone to Contact
-        try {
-            await prisma.contact.update({
-                where: { id: contact.id },
-                data: { phone: formattedPhone }
-            });
-            console.log(`[Flow] Phone saved for contact ${contact.id}: ${formattedPhone}`);
-        } catch (e) {
-            console.error(`[Flow] Failed to save phone for contact ${contact.id}`, e);
-        }
-
-        // Also save the name if we have firstName from the contact profile
-        // The name is already saved via upsertContact (Facebook profile), 
-        // but we store the metadata for reference
-        try {
-            const metadata = (state.metadata as any) || {};
-            metadata.capturedPhone = formattedPhone;
-            metadata.capturedAt = new Date().toISOString();
-            await (prisma as any).conversationState.update({
-                where: { id: state.id },
-                data: { metadata }
-            });
-        } catch (e) {
-            console.warn(`[Flow] Failed to update state metadata`, e);
-        }
-    }
-
-    // 1c. Validation (Name Check) + Save to Contact
-    if (state.expectedType === 'name') {
-        const nameInput = input.trim();
-        if (nameInput.length < 2) {
-            console.log(`[Flow] Expected name, got '${input}'. Sending fallback.`);
-            if (currentStep.fallback) {
-                await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Por favor, digite um nome válido." } }, refLogId);
+        if (Object.keys(updateData).length > 0) {
+            try {
+                await prisma.contact.update({
+                    where: { id: contact.id },
+                    data: updateData
+                });
+                console.log(`[Flow] Contact ${contact.id} updated dynamically:`, updateData);
+            } catch (e) {
+                console.error(`[Flow] Failed to update contact ${contact.id}`, e);
             }
-            return; // State remains active
-        }
-
-        const parts = nameInput.split(/\s+/);
-        const firstName = parts[0];
-        const lastName = parts.slice(1).join(' ') || '';
-
-        try {
-            await prisma.contact.update({
-                where: { id: contact.id },
-                data: { firstName, lastName }
-            });
-            console.log(`[Flow] Name saved for contact ${contact.id}: ${firstName} ${lastName}`);
-        } catch (e) {
-            console.error(`[Flow] Failed to save name for contact ${contact.id}`, e);
         }
 
         try {
             const metadata = (state.metadata as any) || {};
-            metadata.capturedName = nameInput;
+            if (updateData.phone) metadata.capturedPhone = updateData.phone;
+            if (updateData.firstName) metadata.capturedName = `${updateData.firstName} ${updateData.lastName}`.trim();
             metadata.capturedAt = new Date().toISOString();
             await (prisma as any).conversationState.update({
                 where: { id: state.id },

@@ -850,21 +850,22 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                     const newSteps = [...flowSteps]
                                                     newSteps[sIdx].expectedType = v
 
-                                                    // Helper: If phone/number/any/name and no conditions, add a catch-all jump
-                                                    if ((v === 'phone' || v === 'number' || v === 'any' || v === 'name') && (!newSteps[sIdx].conditions || newSteps[sIdx].conditions.length === 0)) {
+                                                    // Helper: If phone/number/any/name/name_phone and no conditions, add a catch-all jump
+                                                    if ((v === 'phone' || v === 'number' || v === 'any' || v === 'name' || v === 'name_phone') && (!newSteps[sIdx].conditions || newSteps[sIdx].conditions.length === 0)) {
                                                         newSteps[sIdx].conditions = [{ match: '*', nextStep: '' }]
                                                     }
 
                                                     setFlowSteps(newSteps)
                                                 }}
                                             >
-                                                <SelectTrigger className="h-7 w-[110px] text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
+                                                <SelectTrigger className="h-7 w-[125px] text-[10px] bg-black/40 border-zinc-700"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="any">Qualquer</SelectItem>
                                                     <SelectItem value="keyword">Texto Exato</SelectItem>
                                                     <SelectItem value="number">Número</SelectItem>
                                                     <SelectItem value="phone">Telefone</SelectItem>
                                                     <SelectItem value="name">Nome (Salvar)</SelectItem>
+                                                    <SelectItem value="name_phone">Nome + Telefone</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
