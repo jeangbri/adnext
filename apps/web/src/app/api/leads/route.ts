@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
     const phoneOnly = searchParams.get("phoneOnly") !== "false";
+    const filterPageId = searchParams.get("pageId") || "";
+    const filterRuleId = searchParams.get("ruleId") || "";
+    const filterDdd = searchParams.get("ddd") || "";
 
     const skip = (page - 1) * limit;
 
@@ -33,10 +36,35 @@ export async function GET(req: NextRequest) {
         where.phone = { not: null };
     }
 
-    // Page filter from scope
-    const pageIds = scope?.pageIds;
-    if (pageIds && pageIds.length > 0) {
-        where.pageId = { in: pageIds };
+    // Filter by DDD
+    if (filterDdd && filterDdd.length === 2) {
+        // usually stored as 5511...
+        where.phone = { startsWith: `55${filterDdd}` };
+    } else if (filterDdd) {
+        // fallback if it's not strictly 2 digits
+        where.phone = { contains: filterDdd };
+    }
+
+    // Page filter (respecting scope)
+    const scopePageIds = scope?.pageIds;
+    if (filterPageId) {
+        if (!scopePageIds || scopePageIds.includes(filterPageId)) {
+            where.pageId = filterPageId;
+        } else {
+            // trying to access unauthorized page
+            where.pageId = "unauthorized";
+        }
+    } else if (scopePageIds && scopePageIds.length > 0) {
+        where.pageId = { in: scopePageIds };
+    }
+
+    // Rule filter
+    if (filterRuleId) {
+        where.ruleExecutions = {
+            some: {
+                ruleId: filterRuleId
+            }
+        };
     }
 
     // Search filter

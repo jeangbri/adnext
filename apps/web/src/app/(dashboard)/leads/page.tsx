@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Phone, Users, Search, ArrowLeft, ArrowRight, Copy, CheckCircle2 } from "lucide-react"
+import { Phone, Users, Search, ArrowLeft, ArrowRight, Copy, CheckCircle2, Trash2, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "sonner"
 
 type Lead = {
     id: string
@@ -81,6 +83,14 @@ export default function LeadsPage() {
     const [page, setPage] = useState(1)
     const [copiedId, setCopiedId] = useState<string | null>(null)
 
+    // Filters
+    const [pageIdFilter, setPageIdFilter] = useState("all")
+    const [ruleIdFilter, setRuleIdFilter] = useState("all")
+    const [dddFilter, setDddFilter] = useState("all")
+
+    const [pages, setPages] = useState<any[]>([])
+    const [rules, setRules] = useState<any[]>([])
+
     const fetchLeads = useCallback(async () => {
         setLoading(true)
         try {
@@ -89,6 +99,9 @@ export default function LeadsPage() {
                 limit: "30",
             })
             if (search) params.set("search", search)
+            if (pageIdFilter !== "all") params.set("pageId", pageIdFilter)
+            if (ruleIdFilter !== "all") params.set("ruleId", ruleIdFilter)
+            if (dddFilter !== "all") params.set("ddd", dddFilter)
 
             const res = await fetch(`/api/leads?${params}`)
             if (res.ok) {
@@ -100,7 +113,7 @@ export default function LeadsPage() {
         } finally {
             setLoading(false)
         }
-    }, [page, search])
+    }, [page, search, pageIdFilter, ruleIdFilter, dddFilter])
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -110,11 +123,58 @@ export default function LeadsPage() {
         return () => clearTimeout(timer)
     }, [fetchLeads, search])
 
+    useEffect(() => {
+        const fetchFilters = async () => {
+            try {
+                const [pagesRes, rulesRes] = await Promise.all([
+                    fetch('/api/messenger/status'),
+                    fetch('/api/automations')
+                ])
+                if (pagesRes.ok) {
+                    const pagesData = await pagesRes.json()
+                    setPages(pagesData.accounts || [])
+                }
+                if (rulesRes.ok) {
+                    const rulesData = await rulesRes.json()
+                    setRules(rulesData.rules || [])
+                }
+            } catch (e) {
+                console.error("Failed to load filters", e)
+            }
+        }
+        fetchFilters()
+    }, [])
+
     const handleCopy = (phone: string, leadId: string) => {
         navigator.clipboard.writeText(phone)
         setCopiedId(leadId)
         setTimeout(() => setCopiedId(null), 2000)
     }
+
+    const handleDelete = async (leadId: string) => {
+        if (!confirm("Tem certeza que deseja excluir este contato?")) return
+        try {
+            const res = await fetch(`/api/leads/${leadId}`, { method: 'DELETE' })
+            if (res.ok) {
+                toast.success("Contato excluído com sucesso!")
+                fetchLeads()
+            } else {
+                toast.error("Erro ao excluir contato.")
+            }
+        } catch (e) {
+            toast.error("Erro interno ao excluir.")
+        }
+    }
+
+    // Common DDDs in Brazil for filter options
+    const ddds = [
+        "11", "12", "13", "14", "15", "16", "17", "18", "19",
+        "21", "22", "24", "27", "28", "31", "32", "33", "34", "35", "37", "38",
+        "41", "42", "43", "44", "45", "46", "47", "48", "49",
+        "51", "53", "54", "55", "61", "62", "63", "64", "65", "66", "67", "68", "69",
+        "71", "73", "74", "75", "77", "79", "81", "82", "83", "84", "85", "86", "87", "88", "89",
+        "91", "92", "93", "94", "95", "96", "97", "98", "99"
+    ]
 
     return (
         <div className="space-y-6">
@@ -140,18 +200,64 @@ export default function LeadsPage() {
                 )}
             </div>
 
-            {/* Search */}
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <Input
-                    placeholder="Buscar por nome ou telefone..."
-                    value={search}
-                    onChange={(e) => {
-                        setSearch(e.target.value)
-                        setPage(1)
-                    }}
-                    className="pl-10 bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-600 focus:ring-emerald-500/30 focus:border-emerald-500/50"
-                />
+            {/* Search and Filters */}
+            <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <Input
+                        placeholder="Buscar por nome ou telefone..."
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value)
+                            setPage(1)
+                        }}
+                        className="pl-10 bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-600 focus:ring-emerald-500/30 focus:border-emerald-500/50"
+                    />
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                    <div className="w-[160px]">
+                        <Select value={pageIdFilter} onValueChange={(val) => { setPageIdFilter(val); setPage(1); }}>
+                            <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-zinc-300">
+                                <SelectValue placeholder="Página (Todas)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas as páginas</SelectItem>
+                                {pages.map(p => (
+                                    <SelectItem key={p.pageId} value={p.pageId}>{p.pageName || p.pageId}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="w-[160px]">
+                        <Select value={ruleIdFilter} onValueChange={(val) => { setRuleIdFilter(val); setPage(1); }}>
+                            <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-zinc-300">
+                                <SelectValue placeholder="Regra (Todas)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas as regras</SelectItem>
+                                {rules.map(r => (
+                                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="w-[140px]">
+                        <Select value={dddFilter} onValueChange={(val) => { setDddFilter(val); setPage(1); }}>
+                            <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-zinc-300">
+                                <SelectValue placeholder="DDD (Todos)" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64 overflow-y-auto">
+                                <SelectItem value="all">Qualquer DDD</SelectItem>
+                                {ddds.map(d => (
+                                    <SelectItem key={d} value={d}>DDD {d}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
             </div>
 
             {/* Leads Table */}
@@ -241,13 +347,14 @@ export default function LeadsPage() {
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="col-span-1 flex justify-end">
+                                    <div className="col-span-1 flex justify-end gap-1">
                                         {lead.phone && (
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
                                                 className="h-8 w-8 p-0 text-zinc-500 hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 onClick={() => handleCopy(lead.phone!, lead.id)}
+                                                title="Copiar telefone"
                                             >
                                                 {copiedId === lead.id ? (
                                                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -256,6 +363,15 @@ export default function LeadsPage() {
                                                 )}
                                             </Button>
                                         )}
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 w-8 p-0 text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => handleDelete(lead.id)}
+                                            title="Excluir"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
