@@ -1238,6 +1238,44 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
         }
     }
 
+    // 1c. Validation (Name Check) + Save to Contact
+    if (state.expectedType === 'name') {
+        const nameInput = input.trim();
+        if (nameInput.length < 2) {
+            console.log(`[Flow] Expected name, got '${input}'. Sending fallback.`);
+            if (currentStep.fallback) {
+                await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Por favor, digite um nome válido." } }, refLogId);
+            }
+            return; // State remains active
+        }
+
+        const parts = nameInput.split(/\s+/);
+        const firstName = parts[0];
+        const lastName = parts.slice(1).join(' ') || '';
+
+        try {
+            await prisma.contact.update({
+                where: { id: contact.id },
+                data: { firstName, lastName }
+            });
+            console.log(`[Flow] Name saved for contact ${contact.id}: ${firstName} ${lastName}`);
+        } catch (e) {
+            console.error(`[Flow] Failed to save name for contact ${contact.id}`, e);
+        }
+
+        try {
+            const metadata = (state.metadata as any) || {};
+            metadata.capturedName = nameInput;
+            metadata.capturedAt = new Date().toISOString();
+            await (prisma as any).conversationState.update({
+                where: { id: state.id },
+                data: { metadata }
+            });
+        } catch (e) {
+            console.warn(`[Flow] Failed to update state metadata`, e);
+        }
+    }
+
     // 2. Check Conditions
     if (currentStep.conditions) {
         for (const cond of currentStep.conditions) {
@@ -1250,8 +1288,8 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
                     matchedCondition = cond;
                     break;
                 }
-            } else if (state.expectedType === 'phone') {
-                // Phone: any valid phone matches '*' condition, or match specific
+            } else if (state.expectedType === 'phone' || state.expectedType === 'name') {
+                // Phone/Name: any valid value matches '*' condition, or match specific
                 if (cond.match === '*' || cond.match === 'any') {
                     matchedCondition = cond;
                     break;

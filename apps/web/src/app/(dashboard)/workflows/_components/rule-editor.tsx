@@ -850,8 +850,8 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                     const newSteps = [...flowSteps]
                                                     newSteps[sIdx].expectedType = v
 
-                                                    // Helper: If phone/number/any and no conditions, add a catch-all jump
-                                                    if ((v === 'phone' || v === 'number' || v === 'any') && (!newSteps[sIdx].conditions || newSteps[sIdx].conditions.length === 0)) {
+                                                    // Helper: If phone/number/any/name and no conditions, add a catch-all jump
+                                                    if ((v === 'phone' || v === 'number' || v === 'any' || v === 'name') && (!newSteps[sIdx].conditions || newSteps[sIdx].conditions.length === 0)) {
                                                         newSteps[sIdx].conditions = [{ match: '*', nextStep: '' }]
                                                     }
 
@@ -864,6 +864,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                     <SelectItem value="keyword">Texto Exato</SelectItem>
                                                     <SelectItem value="number">Número</SelectItem>
                                                     <SelectItem value="phone">Telefone</SelectItem>
+                                                    <SelectItem value="name">Nome (Salvar)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
