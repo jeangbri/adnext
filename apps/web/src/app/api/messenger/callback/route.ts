@@ -72,6 +72,17 @@ export async function GET(req: NextRequest) {
             // Check permissions/tasks if strictly needed (e.g. MESSAGING)
             // if (!page.tasks.includes('MESSAGING')) continue; 
 
+            // Check if page already exists in another workspace
+            const existingPage = await prisma.messengerPage.findUnique({
+                where: { pageId: page.id }
+            });
+
+            // Prevent hijacking active pages from other workspaces
+            if (existingPage && existingPage.workspaceId !== workspaceId && existingPage.isActive) {
+                console.warn(`[Messenger Callback] Page ${page.name} (${page.id}) is already connected and active in workspace ${existingPage.workspaceId}. Skipping to prevent hijacking.`);
+                continue;
+            }
+
             const encryptedToken = encrypt(page.access_token);
 
             await prisma.messengerPage.upsert({
@@ -79,8 +90,7 @@ export async function GET(req: NextRequest) {
                     pageId: page.id
                 },
                 update: {
-                    workspaceId, // allow moving workspace? or keep original?
-                    // keeping update means if I connect to new workspace, it moves ownership
+                    workspaceId, // Safe to update as it's the same workspace
                     pageName: page.name,
                     pageAccessToken: encryptedToken,
                     isActive: true,

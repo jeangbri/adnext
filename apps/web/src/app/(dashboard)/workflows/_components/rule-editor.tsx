@@ -697,7 +697,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                 </DialogContent>
                                             </Dialog>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-wrap mt-2 gap-2">
                                             {(triggerConfig.postIds || []).map((pid: string, i: number) => (
                                                 <Badge key={i} variant="outline" className="text-[10px] border-zinc-700">
                                                     {pid} <Trash2 className="w-3 h-3 ml-1 cursor-pointer" onClick={() => {
@@ -732,7 +732,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                             onChange={e => setTriggerConfig({ ...triggerConfig, thresholdHours: Number(e.target.value) })}
                                             className="bg-black/40 border-zinc-800"
                                         />
-                                        <p className="text-[10px] text-zinc-500">Tempo sem interação do usuário para considerar "Fora da Janela".</p>
+                                        <p className="text-[10px] text-zinc-500">Tempo sem interação do usuário para considerar &quot;Fora da Janela&quot;.</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Switch
@@ -849,6 +849,12 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                 onValueChange={v => {
                                                     const newSteps = [...flowSteps]
                                                     newSteps[sIdx].expectedType = v
+
+                                                    // Helper: If phone/number/any and no conditions, add a catch-all jump
+                                                    if ((v === 'phone' || v === 'number' || v === 'any') && (!newSteps[sIdx].conditions || newSteps[sIdx].conditions.length === 0)) {
+                                                        newSteps[sIdx].conditions = [{ match: '*', nextStep: '' }]
+                                                    }
+
                                                     setFlowSteps(newSteps)
                                                 }}
                                             >
@@ -1083,7 +1089,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                                         {uploading[idx] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                                                                         {uploading[idx] ? 'Enviando...' : 'Carregar do Dispositivo (MP3, OGG, WAV)'}
                                                                     </div>
-                                                                    <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileUpload(e, idx)} />
+                                                                    <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'url')} />
                                                                 </label>
                                                             </div>
 
@@ -1113,7 +1119,7 @@ export function RuleEditor({ rule, mode }: RuleEditorProps) {
                                                                     <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                         <Upload className="w-6 h-6 text-white" />
                                                                     </div>
-                                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'imageUrl')} />
+                                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, idx, 'url')} />
                                                                 </div>
                                                             </label>
                                                         </div>
