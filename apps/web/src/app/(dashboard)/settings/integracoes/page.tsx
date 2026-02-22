@@ -297,7 +297,7 @@ export default function IntegrationsPage() {
                     <DialogHeader>
                         <DialogTitle>Configurar Página</DialogTitle>
                         <DialogDescription className="text-zinc-400">
-                            Defina o botão "Começar" e perguntas frequentes (Ice Breakers).
+                            Defina o botão &quot;Começar&quot; e perguntas frequentes (Ice Breakers).
                         </DialogDescription>
                     </DialogHeader>
 
@@ -367,7 +367,7 @@ export default function IntegrationsPage() {
                                         />
                                     )}
                                     <p className="text-[10px] text-zinc-500">
-                                        Escolha uma automação para iniciar quando o usuário clicar em "Começar".
+                                        Escolha uma automação para iniciar quando o usuário clicar em &quot;Começar&quot;.
                                     </p>
                                 </div>
                             </div>

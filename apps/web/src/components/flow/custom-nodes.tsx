@@ -126,6 +126,7 @@ export const InstagramNode = memo(({ data, selected }: NodeProps) => {
         </div>
     );
 });
+InstagramNode.displayName = 'InstagramNode';
 
 // Trigger Node (Keyword based)
 export const TriggerNode = memo(({ data, selected }: NodeProps) => {
@@ -197,6 +198,7 @@ export const TriggerNode = memo(({ data, selected }: NodeProps) => {
         </div>
     );
 });
+TriggerNode.displayName = 'TriggerNode';
 
 // Start Node (Old entry, now just a helper or deprecated in favor of Trigger)
 export const StartNode = memo(({ data, selected }: NodeProps) => {
@@ -229,6 +231,7 @@ export const StartNode = memo(({ data, selected }: NodeProps) => {
         </div>
     )
 })
+StartNode.displayName = 'StartNode';
 // Delay Node
 export const DelayNode = memo(({ data, selected }: NodeProps) => {
     return (
@@ -253,6 +256,7 @@ export const DelayNode = memo(({ data, selected }: NodeProps) => {
         </div>
     );
 });
+DelayNode.displayName = 'DelayNode';
 
 // Tag Node
 export const TagNode = memo(({ data, selected }: NodeProps) => {
@@ -282,6 +286,7 @@ export const TagNode = memo(({ data, selected }: NodeProps) => {
         </div>
     );
 });
+TagNode.displayName = 'TagNode';
 
 // AI Response Node
 export const AINode = memo(({ data, selected }: NodeProps) => {
@@ -307,7 +312,7 @@ export const AINode = memo(({ data, selected }: NodeProps) => {
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Prompt / Instrução:</p>
                     <p className="text-xs text-slate-700 italic truncate italic">
-                        "{(data as any).prompt || 'Responda educadamente...'}"
+                        &quot;{(data as any).prompt || 'Responda educadamente...'}&quot;
                     </p>
                 </div>
 
@@ -321,6 +326,7 @@ export const AINode = memo(({ data, selected }: NodeProps) => {
         </div>
     );
 });
+AINode.displayName = 'AINode';
 
 // Webhook Node
 export const WebhookNode = memo(({ data, selected }: NodeProps) => {
@@ -358,6 +364,7 @@ export const WebhookNode = memo(({ data, selected }: NodeProps) => {
         </div>
     );
 });
+WebhookNode.displayName = 'WebhookNode';
 
 // Condition Node
 export const ConditionNode = memo(({ data, selected }: NodeProps) => {
@@ -433,3 +440,4 @@ export const ConditionNode = memo(({ data, selected }: NodeProps) => {
         </div>
     );
 });
+ConditionNode.displayName = 'ConditionNode';

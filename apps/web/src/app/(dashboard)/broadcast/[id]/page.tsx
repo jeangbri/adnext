@@ -108,7 +108,7 @@ export default function BroadcastDetailPage({ params }: { params: { id: string }
                         <p><b>Política:</b> {campaign.policyMode}</p>
                         {campaign.totalSkipped > 0 && (
                             <div className="mt-4 p-4 bg-yellow-500/10 text-yellow-500 rounded border border-yellow-500/20">
-                                {campaign.totalSkipped} contatos foram ignorados porque estavam fora da janela de 24h e a campanha estava configurada como "Janela 24h (Seguro)".
+                                {campaign.totalSkipped} contatos foram ignorados porque estavam fora da janela de 24h e a campanha estava configurada como &quot;Janela 24h (Seguro)&quot;.
                             </div>
                         )}
                     </div>
