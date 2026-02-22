@@ -702,12 +702,16 @@ export async function executeActionsUntilDelay(
     for (let i = initialIndex; i < actions.length; i++) {
         const action = actions[i];
 
+        const previousDelay = i > 0 ? actions[i - 1].delayMs || 0 : 0;
+        const currentDelay = action.delayMs || 0;
+        const delayToWait = currentDelay - previousDelay;
+
         // Check for delay
         // If we are resuming at this index (i === initialIndex), we assume the delay is DONE.
         // If we are processing a subsequent action (i > initialIndex) OR not resuming, we respect the delay.
-        if (action.delayMs > 0 && !(isResuming && i === initialIndex)) {
+        if (delayToWait > 0 && !(isResuming && i === initialIndex)) {
             // Found a delay -> Pause & Schedule
-            console.log(`[Engine] Paused run ${runId} at action ${i} for ${action.delayMs}ms`);
+            console.log(`[Engine] Paused run ${runId} at action ${i} for ${delayToWait}ms (Absolute delay: ${currentDelay}ms)`);
 
             // Use Postgres Scheduler (Unified with Execution Processor)
             // Replaces Redis queue which is not being consumed by the current processor
@@ -718,10 +722,10 @@ export async function executeActionsUntilDelay(
                 ruleId: rule.id,
                 nextIndex: i, // Resume AT THIS action
                 createdAt: Date.now(), // Ignored by saver
-                runAt: Date.now() + action.delayMs, // Re-calculated by saver
+                runAt: Date.now() + delayToWait, // Re-calculated by saver
                 refLogId: refLogId,
                 replyToCommentId
-            }, action.delayMs);
+            }, delayToWait);
 
             return { status: 'PAUSED' };
         }
