@@ -7,7 +7,7 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-cbc';
 const ENCODING = 'hex';
 const IV_LENGTH = 16;
-const KEY = process.env.APP_ENCRYPTION_KEY || '12345678901234567890123456789012'; // Default for dev, must be 32 chars
+const KEY = (process.env.APP_ENCRYPTION_KEY || '12345678901234567890123456789012').substring(0, 32); // Must be 32 chars
 
 export function encrypt(text: string) {
     const iv = crypto.randomBytes(IV_LENGTH);
