@@ -906,29 +906,20 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
 
     // ... continued logic ...
 
-    // If Template Policy is active, OVERRIDE message body construction unless it's already compliant?
-    // If action is text, and we need Utility Template, we build it.
-    if (useTemplate && action.type === 'TEXT') {
-        const template = buildTemplateByPolicy(policy, {
-            text: (action.payload as any).text,
-            // Buttons? 
-            metadata: { tag: 'ACCOUNT_UPDATE' } // Default fallback tag
-        });
-        // Since the builder returns full body structure (excluding recipient sometimes or including placeholder),
-        // we need to set messaging_type and message/attachment.
+    // Apply Policy Tagging for all message types when outside 24h window
+    if (useTemplate) {
+        messageBody.messaging_type = "MESSAGE_TAG";
+        if (policy === MessagePolicyType.UTILITY_TEMPLATE) messageBody.tag = "ACCOUNT_UPDATE";
+        else if (policy === MessagePolicyType.FOLLOW_UP_TEMPLATE) messageBody.tag = "CONFIRMED_EVENT_UPDATE";
+        else if (policy === MessagePolicyType.REMINDER_TEMPLATE) messageBody.tag = "CONFIRMED_EVENT_UPDATE";
+        else messageBody.tag = "ACCOUNT_UPDATE"; // Default fallback
+    }
 
-        // Builder returns { recipient, message, messaging_type, tag }
-        // We merge or replace.
-        messageBody = { ...messageBody, ...template };
-        // Fix recipient PSID placeholder if present implies we use our recipient object
-        messageBody.recipient = recipient; // ensure correct recipient
-    } else {
-        // Standard Construction (Existing Switch)
-        // We wrap the existing switch in an ELSE or ensure it doesn't overwrite if useTemplate is handled?
-        // Actually, if useTemplate is true, we ONLY handle conversion for supported types (Text).
-        // If it's Button Template, we might need to adjust tag?
-
-        // Simplified: If useTemplate is TRUE, we enforce TAG/TYPE.
+    // Apply specific text transformations for policies if it's a TEXT action
+    if (useTemplate && action.type === 'TEXT' && payload.text) {
+        if (policy === MessagePolicyType.REMINDER_TEMPLATE && !payload.text.startsWith('🔔')) {
+            payload.text = `🔔 Lembrete: ${payload.text}`;
+        }
     }
 
     // RE-INSERTING THE SWITCH LOGIC CAREFULLY via Context...
