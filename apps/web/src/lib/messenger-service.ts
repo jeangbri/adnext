@@ -365,9 +365,17 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
                     await (prisma as any).conversationState.delete({ where: { id: state.id } });
                 } else {
                     // Process Flow Step
-                    console.log(`[Flow] Processing step ${state.stepId} for ${contact.psid}`);
-                    await processConditionalStep(state, page, contact, text, incomingLogId);
-                    return; // STOP normal rule processing
+                    console.log(`[Flow] Processing step ${state.stepId} for ${contact.psid}. Input: '${text}'`);
+                    const didMatch = await processConditionalStep(state, page, contact, text, incomingLogId);
+
+                    if (didMatch) {
+                        return; // Flow advanced, stop here.
+                    }
+
+                    // IF NOT MATCHED: We don't return yet. 
+                    // We will check if the user triggered a specific HIGH PRIORITY rule (like Welcome) 
+                    // before sending the flow's fallback.
+                    console.log(`[Flow] No match in flow. Checking if input '${text}' matches any global rules...`);
                 }
             }
         } catch (e) {
@@ -462,8 +470,34 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
     }
 
     if (matchedRule) {
+        // If we matched a rule while in a flow state, delete the state to 'switch' or 'restart'
+        const state = await (prisma as any).conversationState.findUnique({
+            where: { pageId_senderPsid: { pageId: page.pageId, senderPsid: contact.psid } }
+        });
+        if (state) {
+            console.log(`[Flow] User matched rule '${matchedRule.name}'. Breaking active flow ${state.ruleId}.`);
+            await (prisma as any).conversationState.delete({ where: { id: state.id } });
+        }
         await executeRule(matchedRule, page, contact, incomingLogId, text);
     } else {
+        // Before falling back, check if we had an active flow that failed match.
+        // If so, send ITS fallback now.
+        const state = await (prisma as any).conversationState.findUnique({
+            where: { pageId_senderPsid: { pageId: page.pageId, senderPsid: contact.psid } }
+        });
+
+        if (state) {
+            console.log(`[Flow] No global rule match. Sending flow fallback.`);
+            const flowRule = await prisma.automationRule.findUnique({ where: { id: state.ruleId } });
+            if (flowRule) {
+                const flow = (flowRule as any).flow as any;
+                const currentStep = flow?.steps?.find((s: any) => s.id === state.stepId);
+                if (currentStep?.fallback) {
+                    await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Opção inválida." } }, incomingLogId);
+                }
+            }
+            return;
+        }
         // ---------------------------------------------------------
         // FALLBACK LOGIC (No standard rule matched)
         // ---------------------------------------------------------
@@ -1155,12 +1189,12 @@ async function sendGraphApi(page: any, contact: any, body: any, refLogId: string
 // ------------------------------------------------------------------
 // FLOW RECURSION ENGINE
 // ------------------------------------------------------------------
-async function processConditionalStep(state: any, page: any, contact: any, text: string, refLogId: string) {
+async function processConditionalStep(state: any, page: any, contact: any, text: string, refLogId: string): Promise<boolean> {
     // Fetch Rule to get Definitions
     const rule = await prisma.automationRule.findUnique({ where: { id: state.ruleId } });
     if (!rule || !(rule as any).flow) {
         await (prisma as any).conversationState.delete({ where: { id: state.id } });
-        return;
+        return true; // Consider handled (cleanup)
     }
 
     const flow = (rule as any).flow as any;
@@ -1168,7 +1202,7 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
 
     if (!currentStep) {
         await (prisma as any).conversationState.delete({ where: { id: state.id } });
-        return;
+        return true; // Consider handled
     }
 
     const input = text.trim();
@@ -1178,11 +1212,8 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
     if (state.expectedType === 'number') {
         const num = parseFloat(input.replace(',', '.'));
         if (isNaN(num)) {
-            console.log(`[Flow] Expected number, got '${input}'. Sending fallback.`);
-            if (currentStep.fallback) {
-                await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Por favor, digite um número válido." } }, refLogId);
-            }
-            return;
+            console.log(`[Flow] Expected number, got '${input}'. Allowing global match.`);
+            return false;
         }
     }
 
@@ -1259,16 +1290,8 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
         }
 
         if (failed) {
-            console.log(`[Flow] Expected ${state.expectedType}, got '${input}'. Sending fallback.`);
-            if (currentStep.fallback) {
-                let msg = currentStep.fallback.message || "Valor inválido fornecido.";
-                if (state.expectedType === 'phone') msg = currentStep.fallback.message || "Por favor, digite um número de telefone válido. Ex: (11) 99999-9999";
-                if (state.expectedType === 'name_phone') msg = currentStep.fallback.message || "Por favor, informe seu NOME junto com o seu TELEFONE.";
-                if (state.expectedType === 'name') msg = currentStep.fallback.message || "Por favor, digite um nome válido.";
-
-                await sendAction(page, contact, { type: 'TEXT', payload: { text: msg } }, refLogId);
-            }
-            return; // State remains active
+            // We no longer send fallback immediately. We return false to allow global rule matching.
+            return false;
         }
 
         if (Object.keys(updateData).length > 0) {
@@ -1350,21 +1373,20 @@ async function processConditionalStep(state: any, page: any, contact: any, text:
                 });
                 // Send Next Question
                 await sendAction(page, contact, { type: 'TEXT', payload: { text: nextStep.message } }, refLogId);
+                return true;
             } else {
                 // Finish (Next step not found)
                 await (prisma as any).conversationState.delete({ where: { id: state.id } });
+                return true;
             }
         } else {
             // No next step -> Finish
             await (prisma as any).conversationState.delete({ where: { id: state.id } });
+            return true;
         }
     } else {
-        // Fallback
-        console.log(`[Flow] No match for '${input}'. Sending fallback.`);
-        if (currentStep.fallback) {
-            await sendAction(page, contact, { type: 'TEXT', payload: { text: currentStep.fallback.message || "Opção inválida." } }, refLogId);
-        }
-        // State REMAINS active (waiting retry)
+        // No match for conditions
+        return false;
     }
 }
 
