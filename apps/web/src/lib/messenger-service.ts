@@ -887,6 +887,7 @@ async function sendAction(page: any, contact: any, action: any, refLogId: string
         lastInteractionAt: conversation?.lastInteractionAt || null,
         messageType: action.type,
         isBroadcast: false, // Rules are not usually broadcasts
+        isAutomation: true, // This is coming from the automation engine
     });
 
     if (policy === MessagePolicyType.BLOCKED) {

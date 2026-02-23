@@ -5,7 +5,8 @@ const prisma = new PrismaClient()
 async function main() {
     console.log('--- RECENT SCHEDULED EXECUTIONS ---')
     const execs = await prisma.scheduledExecution.findMany({
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { runAt: 'asc' },
+        where: { status: 'PENDING' },
         take: 10
     })
 

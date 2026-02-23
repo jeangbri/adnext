@@ -11,12 +11,13 @@ export interface PolicyContext {
     lastInteractionAt: Date | null | number;
     messageType?: string; // 'text', 'image', etc.
     isBroadcast?: boolean;
+    isAutomation?: boolean;
     tag?: string; // e.g. 'CONFIRMED_EVENT_UPDATE'
     flowType?: 'standard' | 'followup' | 'reminder';
 }
 
 export function classifyMessageType(context: PolicyContext): MessagePolicyType {
-    const { lastInteractionAt, isBroadcast, flowType } = context;
+    const { lastInteractionAt, isBroadcast, isAutomation, flowType } = context;
 
     // 1. Check 24h Window
     const now = Date.now();
@@ -28,9 +29,9 @@ export function classifyMessageType(context: PolicyContext): MessagePolicyType {
     }
 
     // 2. Outside 24h Logic
-    if (isBroadcast) {
-        // Broadcasts outside 24h MUST be Utility or Marketing (Template)
-        // We default to UTILITY_TEMPLATE as the safe conversion target for "Smart Broadcast"
+    if (isBroadcast || isAutomation) {
+        // Broadcasts and Automations outside 24h MUST be Utility or Marketing (Template)
+        // We default to UTILITY_TEMPLATE as the safe conversion target
         return MessagePolicyType.UTILITY_TEMPLATE;
     }
 
