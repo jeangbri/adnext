@@ -826,6 +826,20 @@ async function executeRule(rule: any, page: any, contact: any, refLogId: string,
         }
     }
 
+    // Cancel old pending executions for this user and rule to prevent overlapping sequences
+    try {
+        await (prisma as any).scheduledExecution.updateMany({
+            where: {
+                pageId: page.pageId,
+                psid: contact.psid,
+                ruleId: rule.id,
+                status: 'PENDING'
+            },
+            data: { status: 'DONE' }
+        });
+        console.log(`[Engine] Cancelled previous pending executions for rule ${rule.name}`);
+    } catch (e) { /* ignore */ }
+
     // Start Async Execution
     const executionId = uuidv4();
     try {
