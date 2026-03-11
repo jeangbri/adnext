@@ -390,6 +390,16 @@ function FlowCanvas({ params }: { params: { id: string } }) {
                     </Button>
 
                     <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/workflows/create?edit=${params.id}`)}
+                        className="gap-2 border-zinc-800 text-zinc-400 hover:text-white"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                        Editar Fluxo
+                    </Button>
+
+                    <Button
                         variant={confirmDelete ? "destructive" : "outline"}
                         size="sm"
                         disabled={deleting}

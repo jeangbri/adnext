@@ -142,6 +142,9 @@ function FlowBuilderContent() {
     const [selectedPageId, setSelectedPageId] = useState<string>('')
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
+    // Check if we are in edit mode
+    const [editId, setEditId] = useState<string | null>(null);
+
     // Flow State
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialEdges);
@@ -150,14 +153,63 @@ function FlowBuilderContent() {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch('/api/messenger/status')
-            .then(r => r.json())
-            .then(data => {
-                setPages(data.accounts || [])
-                if (data.accounts?.length > 0) setSelectedPageId(data.accounts[0].pageId)
-            })
-            .catch(() => toast.error("Erro ao carregar páginas"))
-    }, [])
+        const urlParams = new URLSearchParams(window.location.search);
+        const edit = urlParams.get('edit');
+        if (edit) {
+            setEditId(edit);
+        }
+    }, []);
+
+    const fetchPages = useCallback(async () => {
+        try {
+            const r = await fetch('/api/messenger/status');
+            const data = await r.json();
+            setPages(data.accounts || []);
+            if (!selectedPageId && data.accounts?.length > 0 && !editId) {
+                setSelectedPageId(data.accounts[0].pageId);
+            }
+        } catch (e) {
+            toast.error("Erro ao carregar páginas");
+        }
+    }, [editId, selectedPageId]);
+
+    useEffect(() => {
+        fetchPages();
+    }, [fetchPages]);
+
+    useEffect(() => {
+        if (!editId) return;
+
+        const loadFlow = async () => {
+            try {
+                const res = await fetch(`/api/workflows/${editId}`);
+                if (res.ok) {
+                    const data = await res.json();
+
+                    if (data?.root) {
+                        setName(data.root.name);
+                        if (data.root.pageId) setSelectedPageId(data.root.pageId);
+
+                        if (data.root.triggerConfig?.canvas) {
+                            const canvas = data.root.triggerConfig.canvas;
+                            setNodes(canvas.nodes || []);
+                            setEdges(canvas.edges || []);
+
+                            // Let the graph render then fit view
+                            setTimeout(() => {
+                                onLayout();
+                            }, 100);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                toast.error("Erro ao carregar fluxo para edição.");
+            }
+        };
+
+        loadFlow();
+    }, [editId, setNodes, setEdges]);
 
     // ─── Drag and Drop Handlers ───────────────────────────────────────────────
 
@@ -266,8 +318,11 @@ function FlowBuilderContent() {
 
         setSaving(true)
         try {
-            const res = await fetch('/api/workflows', {
-                method: 'POST',
+            const url = editId ? `/api/workflows/${editId}` : '/api/workflows';
+            const method = editId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name,
@@ -284,7 +339,7 @@ function FlowBuilderContent() {
             })
 
             if (res.ok) {
-                toast.success("Regra salva com sucesso!")
+                toast.success(editId ? "Fluxo atualizado com sucesso!" : "Regra salva com sucesso!")
                 setTimeout(() => router.push('/workflows'), 1000)
             } else {
                 const data = await res.json()
