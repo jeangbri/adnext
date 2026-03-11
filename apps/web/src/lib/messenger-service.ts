@@ -398,7 +398,13 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
     });
 
     // In-memory filter
-    const rules = allRules.filter((r: any) => validTypes.includes(r.triggerType || 'MESSAGE_ANY'));
+    const rules = allRules.filter((r: any) => {
+        // Prevent child nodes (which might have MESSAGE_ANY and no keywords) from catching global traffic
+        const isChildNode = r.triggerConfig && r.triggerConfig.isBroadcastFlow === false;
+        if (isChildNode) return false;
+
+        return validTypes.includes(r.triggerType || 'MESSAGE_ANY');
+    });
 
     let matchedRule: any = null;
 

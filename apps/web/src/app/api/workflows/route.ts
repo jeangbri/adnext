@@ -113,9 +113,15 @@ export async function POST(req: NextRequest) {
 
             if (node.type === 'broadcastNode') {
                 const buttons = (node.data?.buttons || []).map((btn: any) => {
-                    if (btn.actionType === 'flow_jump' && btn.targetNodeId) {
-                        const targetRuleId = createdRules[btn.targetNodeId];
-                        return { ...btn, value: targetRuleId || btn.targetNodeId };
+                    if (btn.actionType === 'flow_jump') {
+                        // Find the edge that connects this button to another node
+                        const edge = edgesList.find((e: any) => e.source === node.id && e.sourceHandle === btn.id);
+                        const edgeTargetId = edge ? edge.target : btn.targetNodeId;
+
+                        if (edgeTargetId) {
+                            const targetRuleId = createdRules[edgeTargetId];
+                            return { ...btn, targetNodeId: edgeTargetId, value: targetRuleId || edgeTargetId };
+                        }
                     }
                     return btn;
                 });
