@@ -197,7 +197,7 @@ function FlowBuilderContent() {
 
                             // Let the graph render then fit view
                             setTimeout(() => {
-                                onLayout();
+                                setViewport({ x: 250, y: 100, zoom: 0.8 }, { duration: 800 });
                             }, 100);
                         }
                     }

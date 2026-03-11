@@ -1,0 +1,285 @@
+{
+  "canvas": {
+    "edges": [
+      {
+        "id": "e_trigger_root",
+        "type": "default",
+        "style": {
+          "stroke": "#10b981",
+          "strokeWidth": 2
+        },
+        "source": "trigger",
+        "target": "root",
+        "animated": true,
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#10b981"
+        }
+      },
+      {
+        "id": "xy-edge__rootbtn_1773250750384_voqae-node_1773251397736_essdb",
+        "type": "default",
+        "style": {
+          "stroke": "#0084FF",
+          "strokeWidth": 2
+        },
+        "source": "root",
+        "target": "node_1773251397736_essdb",
+        "animated": true,
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#0084FF"
+        },
+        "sourceHandle": "btn_1773250750384_voqae"
+      },
+      {
+        "id": "xy-edge__node_1773251397736_essdbbtn_1773251397736_2v5l4-node_1773251435092_e4kxq",
+        "type": "default",
+        "style": {
+          "stroke": "#0084FF",
+          "strokeWidth": 2
+        },
+        "source": "node_1773251397736_essdb",
+        "target": "node_1773251435092_e4kxq",
+        "animated": true,
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#0084FF"
+        },
+        "sourceHandle": "btn_1773251397736_2v5l4"
+      },
+      {
+        "id": "xy-edge__node_1773251397736_essdbbtn_1773251422184-node_1773251493841_tn0l7",
+        "type": "default",
+        "style": {
+          "stroke": "#0084FF",
+          "strokeWidth": 2
+        },
+        "source": "node_1773251397736_essdb",
+        "target": "node_1773251493841_tn0l7",
+        "animated": true,
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#0084FF"
+        },
+        "sourceHandle": "btn_1773251422184"
+      },
+      {
+        "id": "xy-edge__rootbtn_1773250750384_94x48-node_1773251551651_q5gh3",
+        "type": "default",
+        "style": {
+          "stroke": "#0084FF",
+          "strokeWidth": 2
+        },
+        "source": "root",
+        "target": "node_1773251551651_q5gh3",
+        "animated": true,
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#0084FF"
+        },
+        "sourceHandle": "btn_1773250750384_94x48"
+      },
+      {
+        "id": "xy-edge__node_1773251551651_q5gh3btn_1773251607484-node_1773251616270_b8ckk",
+        "type": "default",
+        "style": {
+          "stroke": "#0084FF",
+          "strokeWidth": 2
+        },
+        "source": "node_1773251551651_q5gh3",
+        "target": "node_1773251616270_b8ckk",
+        "animated": true,
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#0084FF"
+        },
+        "sourceHandle": "btn_1773251607484"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "trigger",
+        "data": {
+          "id": "trigger",
+          "name": "Gatilho Principal",
+          "keywords": [
+            "QUERO"
+          ],
+          "matchType": "STARTS_WITH",
+          "triggerType": "MESSAGE_KEYWORD"
+        },
+        "type": "startNode",
+        "isRoot": true,
+        "position": {
+          "x": 50,
+          "y": 250
+        }
+      },
+      {
+        "id": "root",
+        "data": {
+          "id": "root",
+          "name": "Primeira Mensagem",
+          "stats": 0,
+          "isRoot": false,
+          "buttons": [
+            {
+              "id": "btn_1773250750384_voqae",
+              "label": "Ver Cursos",
+              "actionType": "flow_jump",
+              "targetNodeId": null
+            },
+            {
+              "id": "btn_1773250750384_94x48",
+              "label": "Ver Empregos",
+              "actionType": "flow_jump",
+              "targetNodeId": null
+            }
+          ],
+          "message": "Olá {{first_name}}! \n\nTenho algumas opções para você:"
+        },
+        "type": "broadcastNode",
+        "isRoot": true,
+        "position": {
+          "x": 464.5802357620214,
+          "y": 359.4919843011915
+        }
+      },
+      {
+        "id": "node_1773251397736_essdb",
+        "data": {
+          "id": "node_1773251397736_essdb",
+          "name": "Mensagem",
+          "stats": 0,
+          "isRoot": false,
+          "buttons": [
+            {
+              "id": "btn_1773251397736_2v5l4",
+              "label": "SENAI",
+              "actionType": "flow_jump"
+            },
+            {
+              "id": "btn_1773251422184",
+              "label": "SENAC",
+              "actionType": "flow_jump",
+              "targetNodeId": null
+            }
+          ],
+          "message": "Ver cursos disponiveis"
+        },
+        "type": "broadcastNode",
+        "isRoot": false,
+        "position": {
+          "x": 879.1099978399978,
+          "y": 315.534778093912
+        }
+      },
+      {
+        "id": "node_1773251435092_e4kxq",
+        "data": {
+          "id": "node_1773251435092_e4kxq",
+          "name": "Mensagem",
+          "stats": 0,
+          "isRoot": false,
+          "buttons": [
+            {
+              "id": "btn_1773251435092_bf9my",
+              "url": "https://google.com.br",
+              "label": "Ver Cursos",
+              "actionType": "web_url"
+            }
+          ],
+          "message": "Curso Senai disponivel"
+        },
+        "type": "broadcastNode",
+        "isRoot": false,
+        "position": {
+          "x": 1315.70370516615,
+          "y": 199.1130922215269
+        }
+      },
+      {
+        "id": "node_1773251493841_tn0l7",
+        "data": {
+          "id": "node_1773251493841_tn0l7",
+          "name": "Mensagem",
+          "stats": 0,
+          "isRoot": false,
+          "buttons": [
+            {
+              "id": "btn_1773251493841_x06p0",
+              "url": "https://google.com.br",
+              "label": "Ver cursos",
+              "actionType": "web_url"
+            }
+          ],
+          "message": "Curso Senac disponivel"
+        },
+        "type": "broadcastNode",
+        "isRoot": false,
+        "position": {
+          "x": 1337.023576899141,
+          "y": 600.0398852719952
+        }
+      },
+      {
+        "id": "node_1773251551651_q5gh3",
+        "data": {
+          "id": "node_1773251551651_q5gh3",
+          "name": "Mensagem",
+          "stats": 0,
+          "isRoot": false,
+          "buttons": [
+            {
+              "id": "btn_1773251551651_dag69",
+              "url": "https://google.com.br",
+              "label": "Ver vagas",
+              "actionType": "web_url"
+            },
+            {
+              "id": "btn_1773251607484",
+              "label": "Receber mais",
+              "actionType": "flow_jump",
+              "targetNodeId": null
+            }
+          ],
+          "message": "Encontramos vagas disponiveis agora"
+        },
+        "type": "broadcastNode",
+        "isRoot": false,
+        "position": {
+          "x": 907.7013239142162,
+          "y": 777.4335921747787
+        }
+      },
+      {
+        "id": "node_1773251616270_b8ckk",
+        "data": {
+          "id": "node_1773251616270_b8ckk",
+          "name": "Mensagem",
+          "stats": 0,
+          "isRoot": false,
+          "buttons": [
+            {
+              "id": "btn_1773251616270_mww5p",
+              "label": "Continuar",
+              "actionType": "flow_jump"
+            }
+          ],
+          "message": "Ok! Vamos enviar mais em breve"
+        },
+        "type": "broadcastNode",
+        "isRoot": false,
+        "position": {
+          "x": 1377.729506444509,
+          "y": 965.541829859071
+        }
+      }
+    ]
+  },
+  "nodeId": "root",
+  "flowRootId": null,
+  "triggerPayload": null,
+  "isBroadcastFlow": true
+}
