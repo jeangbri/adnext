@@ -36,14 +36,13 @@ function BroadcastNode({ data, selected, id }: { data: NodeData; selected: boole
             isRoot ? "border-emerald-500/50 shadow-emerald-500/10" : "border-zinc-800",
             selected && "ring-4 ring-[#0084FF]/20 border-[#0084FF]"
         )}>
-            {/* Input Handle for Child Nodes */}
-            {!isRoot && (
-                <Handle
-                    type="target"
-                    position={Position.Left}
-                    className="w-4 h-4 bg-zinc-400 border-2 border-zinc-900 !left-[-10px] hover:w-5 hover:h-5 transition-all"
-                />
-            )}
+            {/* Input Handle for Child Nodes (Always visible now so StartNode can connect to Root) */}
+            <Handle
+                type="target"
+                position={Position.Left}
+                className="w-4 h-4 bg-zinc-400 border-2 border-zinc-900 !left-[-10px] hover:w-5 hover:h-5 transition-all"
+            />
+
 
             {/* Quick Delete Button */}
             {selected && !isRoot && (
