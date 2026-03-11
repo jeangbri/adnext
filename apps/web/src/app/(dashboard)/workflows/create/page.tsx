@@ -1,299 +1,411 @@
 "use client"
 
-import { useState } from "react"
-import { RuleEditor } from "../_components/rule-editor"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useState, useCallback, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import {
-    Phone, MessageSquare, ArrowLeft, Sparkles,
-    Zap, FileText, ArrowRight, CheckCircle2
+    ArrowLeft, Save, Loader2, RefreshCw
 } from "lucide-react"
-import Link from "next/link"
+import { toast } from "sonner"
+import dagre from 'dagre'
 
-// ──────────────────────────────────────────
-// QUIZ TEMPLATE DEFINITIONS
-// ──────────────────────────────────────────
+import {
+    ReactFlow,
+    Background,
+    Controls,
+    useNodesState,
+    useEdgesState,
+    Edge,
+    Node,
+    MarkerType,
+    ConnectionLineType,
+    ReactFlowProvider,
+    Panel,
+    Connection,
+    addEdge,
+    useReactFlow,
+    NodeMouseHandler
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 
-const QUIZ_LEAD_TEMPLATE = {
-    name: "Quiz - Captura de Leads",
-    keywords: [],
-    matchType: "CONTAINS",
-    triggerType: "MESSAGE_ANY",
-    triggerConfig: {},
-    isActive: true,
-    priority: 10,
-    cooldownSeconds: 0,
-    pageIds: [],
-    flow: {
-        enabled: true,
-        steps: [
-            {
-                id: "step_1",
-                type: "question",
-                message: "🎯 Olá! Vou te ajudar a encontrar a melhor opção!\n\nQual categoria te interessa mais?\n\n1️⃣ Opção A\n2️⃣ Opção B\n3️⃣ Opção C\n4️⃣ Opção D",
-                expectedType: "keyword",
-                conditions: [
-                    { match: "1", nextStep: "step_2" },
-                    { match: "2", nextStep: "step_2" },
-                    { match: "3", nextStep: "step_2" },
-                    { match: "4", nextStep: "step_2" },
-                ],
-                fallback: { message: "Por favor, escolha 1, 2, 3 ou 4 ☝️" }
-            },
-            {
-                id: "step_2",
-                type: "question",
-                message: "Ótima escolha! 🔥\n\nAgora, qual faixa de valor você prefere?\n\n1️⃣ Até R$ 500\n2️⃣ R$ 500 - R$ 1.000\n3️⃣ R$ 1.000 - R$ 2.000\n4️⃣ Acima de R$ 2.000",
-                expectedType: "keyword",
-                conditions: [
-                    { match: "1", nextStep: "step_3" },
-                    { match: "2", nextStep: "step_3" },
-                    { match: "3", nextStep: "step_3" },
-                    { match: "4", nextStep: "step_3" },
-                ],
-                fallback: { message: "Escolha 1, 2, 3 ou 4 para continuar 😉" }
-            },
-            {
-                id: "step_3",
-                type: "question",
-                message: "📱 Perfeito! Para te enviar as melhores opções, preciso do seu telefone com DDD.\n\nExemplo: (11) 99999-9999",
-                expectedType: "phone",
-                conditions: [
-                    { match: "*", nextStep: "step_4" },
-                ],
-                fallback: { message: "📱 Por favor, digite um número de telefone válido com DDD.\nEx: (11) 99999-9999" }
-            },
-            {
-                id: "step_4",
-                type: "question",
-                message: "✅ Pronto! Telefone salvo com sucesso!\n\nUm especialista vai entrar em contato com você em breve. 🚀\n\nObrigado pelo interesse! 💙",
-                expectedType: "any",
-                conditions: [],
-                fallback: { message: "" }
+import BroadcastNode from "../components/BroadcastNode";
+import DelayNode from "../components/nodes/DelayNode";
+import ConditionNode from "../components/nodes/ConditionNode";
+import StartNode from "../components/nodes/StartNode";
+import Sidebar from "../components/Sidebar";
+import PropertiesPanel from "../components/PropertiesPanel";
+
+// ─── Types & Constants ────────────────────────────────────────────────────────
+
+const nodeTypes = {
+    broadcastNode: BroadcastNode,
+    delayNode: DelayNode,
+    conditionNode: ConditionNode,
+    startNode: StartNode,
+};
+
+const genId = () => `node_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+const genBtnId = () => `btn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+
+const initialNodes: Node[] = [
+    {
+        id: 'trigger',
+        type: 'startNode',
+        position: { x: 50, y: 250 },
+        data: {
+            id: 'trigger',
+            name: 'Gatilho Principal',
+            triggerType: 'Mensagem no Messenger'
+        }
+    },
+    {
+        id: 'root',
+        type: 'broadcastNode',
+        position: { x: 400, y: 150 },
+        data: {
+            id: 'root',
+            isRoot: false,
+            name: 'Primeira Mensagem',
+            message: 'Olá {{first_name}}! \n\nTenho algumas opções para você:',
+            buttons: [
+                { id: genBtnId(), label: 'Ver Cursos', targetNodeId: null, actionType: 'flow_jump' },
+                { id: genBtnId(), label: 'Ver Empregos', targetNodeId: null, actionType: 'flow_jump' },
+            ],
+            stats: 0
+        },
+    },
+];
+
+const initialEdges: Edge[] = [
+    {
+        id: 'e_trigger_root',
+        source: 'trigger',
+        target: 'root',
+        type: 'default',
+        animated: true,
+        style: { stroke: '#10b981', strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' },
+    }
+];
+
+// ─── Dagre Auto Layout ────────────────────────────────────────────────────────
+
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    dagreGraph.setGraph({ rankdir: direction, nodesep: 60, ranksep: 100 });
+
+    nodes.forEach((node) => {
+        let width = 360;
+        let height = 200;
+
+        if (node.type === 'delayNode') { width = 300; height = 100; }
+        if (node.type === 'conditionNode') { width = 300; height = 150; }
+        if (node.type === 'startNode') { width = 260; height = 80; }
+
+        dagreGraph.setNode(node.id, { width, height });
+    });
+
+    edges.forEach((edge) => {
+        dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    nodes.forEach((node) => {
+        const nodeWithPosition = dagreGraph.node(node.id);
+        let width = 360;
+        let height = 200;
+
+        if (node.type === 'delayNode') { width = 300; height = 100; }
+        if (node.type === 'conditionNode') { width = 300; height = 150; }
+        if (node.type === 'startNode') { width = 260; height = 80; }
+
+        node.position = {
+            x: nodeWithPosition.x - width / 2,
+            y: nodeWithPosition.y - height / 2
+        };
+    });
+
+    return { nodes, edges };
+};
+
+// ─── Main Builder Content ─────────────────────────────────────────────────────
+
+function FlowBuilderContent() {
+    const router = useRouter()
+    const { screenToFlowPosition, setViewport } = useReactFlow();
+    const [name, setName] = useState("Nova Regra")
+    const [saving, setSaving] = useState(false)
+    const [pages, setPages] = useState<any[]>([])
+    const [selectedPageId, setSelectedPageId] = useState<string>('')
+    const reactFlowWrapper = useRef<HTMLDivElement>(null);
+
+    // Flow State
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialNodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialEdges);
+
+    // UI State
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch('/api/messenger/status')
+            .then(r => r.json())
+            .then(data => {
+                setPages(data.accounts || [])
+                if (data.accounts?.length > 0) setSelectedPageId(data.accounts[0].pageId)
+            })
+            .catch(() => toast.error("Erro ao carregar páginas"))
+    }, [])
+
+    // ─── Drag and Drop Handlers ───────────────────────────────────────────────
+
+    const onDragOver = useCallback((event: React.DragEvent) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }, []);
+
+    const onDrop = useCallback(
+        (event: React.DragEvent) => {
+            event.preventDefault();
+
+            const type = event.dataTransfer.getData('application/reactflow');
+            const label = event.dataTransfer.getData('application/reactflow-label');
+
+            if (typeof type === 'undefined' || !type) return;
+
+            const position = screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+            });
+
+            const newNodeId = genId();
+            let dataObj: any = { id: newNodeId, name: label };
+
+            if (type === 'messageNode' || type === 'broadcastNode') {
+                dataObj = {
+                    ...dataObj,
+                    isRoot: false,
+                    message: 'Digite sua mensagem...',
+                    buttons: [{ id: genBtnId(), label: 'Continuar', actionType: 'flow_jump' }],
+                    stats: 0
+                }
+            } else if (type === 'delayNode') {
+                dataObj = { ...dataObj, delayAmount: 1, delayUnit: 'Minutos' }
+            } else if (type === 'conditionNode') {
+                dataObj = { ...dataObj, conditionText: 'IF HasTag(Lead)' }
             }
-        ]
-    },
-    actions: []
-}
 
-const SIMPLE_RESPONSE_TEMPLATE = {
-    name: "Resposta Automática",
-    keywords: [],
-    matchType: "CONTAINS",
-    triggerType: "MESSAGE_ANY",
-    triggerConfig: {},
-    isActive: true,
-    priority: 0,
-    cooldownSeconds: 0,
-    pageIds: [],
-    flow: { enabled: false, steps: [] },
-    actions: [
-        {
-            type: "MESSAGE_WITH_BUTTONS",
-            delayMs: 0,
-            payload: { message: "Olá! 👋 Como posso te ajudar?", buttons: [] }
+            const newNode: Node = {
+                id: newNodeId,
+                type: type === 'messageNode' ? 'broadcastNode' : type,
+                position,
+                data: dataObj,
+            };
+
+            setNodes((nds) => nds.concat(newNode));
+
+            // Auto select
+            setTimeout(() => setSelectedNodeId(newNodeId), 50);
+        },
+        [screenToFlowPosition, setNodes]
+    );
+
+    // ─── Interaction Handlers ────────────────────────────────────────────────
+
+    const onConnect = useCallback(
+        (params: Connection) => setEdges((eds) => addEdge({
+            ...params,
+            type: 'default',
+            animated: true,
+            style: { stroke: '#0084FF', strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: '#0084FF' },
+        }, eds)),
+        [setEdges]
+    );
+
+    const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
+        setSelectedNodeId(node.id);
+    }, []);
+
+    const onPaneClick = useCallback(() => {
+        setSelectedNodeId(null);
+    }, []);
+
+    const handleUpdateNode = useCallback((nodeId: string, newData: any) => {
+        setNodes((nds) =>
+            nds.map((node) => {
+                if (node.id === nodeId) {
+                    return { ...node, data: newData };
+                }
+                return node;
+            })
+        );
+    }, [setNodes]);
+
+    const handleDeleteNode = useCallback((nodeId: string) => {
+        setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+        setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+        setSelectedNodeId(null);
+    }, [setNodes, setEdges]);
+
+    const onLayout = useCallback(() => {
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements([...nodes], [...edges]);
+        setNodes([...layoutedNodes]);
+        setEdges([...layoutedEdges]);
+        setViewport({ x: 250, y: 100, zoom: 0.8 }, { duration: 800 });
+    }, [nodes, edges, setNodes, setEdges, setViewport]);
+
+
+    // ─── Save Action ─────────────────────────────────────────────────────────
+
+    const handleSave = async () => {
+        if (!name.trim()) return toast.error("Dê um nome ao fluxo")
+        // if (!selectedPageId) return toast.error("Selecione uma página do Facebook")
+
+        setSaving(true)
+        try {
+            const res = await fetch('/api/workflows', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    pageId: selectedPageId,
+                    nodes: nodes.map(n => ({
+                        id: n.id,
+                        type: n.type,
+                        position: n.position,
+                        data: n.data,
+                        isRoot: n.id === 'root' || n.type === 'startNode'
+                    })),
+                    edges: edges
+                })
+            })
+
+            if (res.ok) {
+                toast.success("Regra salva com sucesso!")
+                setTimeout(() => router.push('/workflows'), 1000)
+            } else {
+                const data = await res.json()
+                toast.error("Erro: " + (data.error || "ao salvar a regra"), { id: 'save' })
+            }
+        } catch (e) {
+            console.error(e)
+            toast.error("Erro interno ao enviar para o servidor", { id: 'save' })
+        } finally {
+            setSaving(false)
         }
-    ]
-}
-
-const COMMENT_TEMPLATE = {
-    name: "Resposta a Comentário",
-    keywords: [],
-    matchType: "CONTAINS",
-    triggerType: "COMMENT_ON_POST",
-    triggerConfig: { ignoreOwnComments: true, postIds: [] },
-    isActive: true,
-    priority: 0,
-    cooldownSeconds: 60,
-    pageIds: [],
-    flow: { enabled: false, steps: [] },
-    actions: [
-        {
-            type: "MESSAGE_WITH_BUTTONS",
-            delayMs: 0,
-            payload: { message: "Obrigado pelo seu comentário! 💬\n\nVou te enviar mais detalhes por aqui.", buttons: [] }
-        }
-    ]
-}
-
-const templates = [
-    {
-        id: "quiz_lead",
-        icon: Phone,
-        title: "Quiz de Captura de Leads",
-        description: "Fluxo conversacional com perguntas que guiam o lead até fornecer o telefone. Captura automática do nome + telefone.",
-        tags: ["Fluxo", "Captura", "Telefone"],
-        color: "emerald",
-        template: QUIZ_LEAD_TEMPLATE,
-        recommended: true,
-        features: [
-            "Perguntas em sequência (quiz)",
-            "Validação automática do telefone",
-            "Salva nome + telefone no contato",
-            "Mensagem de confirmação final",
-        ]
-    },
-    {
-        id: "simple_response",
-        icon: MessageSquare,
-        title: "Resposta Simples",
-        description: "Resposta automática por palavra-chave. Ideal para perguntas frequentes como preço, horário, etc.",
-        tags: ["Simples", "FAQ"],
-        color: "blue",
-        template: SIMPLE_RESPONSE_TEMPLATE,
-        recommended: false,
-        features: [
-            "Resposta por palavra-chave",
-            "Suporte a botões e links",
-            "Ideal para FAQ e respostas rápidas",
-        ]
-    },
-    {
-        id: "comment_response",
-        icon: FileText,
-        title: "Resposta a Comentário",
-        description: "Responda automaticamente quando alguém comenta em um post ou reels. Envie DM privada com mais informações.",
-        tags: ["Comentário", "Post", "Reels"],
-        color: "amber",
-        template: COMMENT_TEMPLATE,
-        recommended: false,
-        features: [
-            "Ativa por comentário em post",
-            "Envio de DM privada",
-            "Cooldown anti-spam (60s)",
-        ]
-    }
-]
-
-const colorMap: Record<string, { bg: string, border: string, text: string, icon: string, glow: string }> = {
-    emerald: {
-        bg: "bg-emerald-500/5",
-        border: "border-emerald-500/20 hover:border-emerald-500/50",
-        text: "text-emerald-400",
-        icon: "bg-emerald-500/10",
-        glow: "shadow-emerald-500/10",
-    },
-    blue: {
-        bg: "bg-blue-500/5",
-        border: "border-blue-500/20 hover:border-blue-500/50",
-        text: "text-blue-400",
-        icon: "bg-blue-500/10",
-        glow: "shadow-blue-500/10",
-    },
-    amber: {
-        bg: "bg-amber-500/5",
-        border: "border-amber-500/20 hover:border-amber-500/50",
-        text: "text-amber-400",
-        icon: "bg-amber-500/10",
-        glow: "shadow-amber-500/10",
-    },
-}
-
-export default function CreateRulePage() {
-    const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
-
-    // If template selected, show pre-filled editor
-    if (selectedTemplate) {
-        return <RuleEditor mode="create" rule={selectedTemplate} />
     }
 
-    // Template selection screen
+    const selectedNodeObj = nodes.find(n => n.id === selectedNodeId) || null;
+
     return (
-        <div className="space-y-8 max-w-5xl mx-auto pb-16">
-            {/* Header */}
-            <div className="flex items-center gap-4 sticky top-0 z-50 bg-background/80 backdrop-blur-lg py-4 border-b border-white/5 -mx-4 px-4 lg:-mx-8 lg:px-8">
-                <Link href="/workflows">
-                    <Button variant="ghost" size="icon" className="hover:bg-zinc-800 rounded-full">
+        <div className="flex h-screen -m-6 relative overflow-hidden bg-zinc-950">
+            {/* Left Sidebar */}
+            <div className="h-full pt-[73px] z-20 absolute left-0 w-64 border-r border-zinc-800 bg-zinc-950">
+                <Sidebar />
+            </div>
+
+            {/* Right Properties Panel */}
+            {selectedNodeObj && (
+                <div className="h-full pt-[73px] z-20 absolute right-0 w-80 border-l border-zinc-800 bg-zinc-950 shadow-2xl">
+                    <PropertiesPanel
+                        selectedNode={selectedNodeObj}
+                        onUpdateNode={handleUpdateNode}
+                        onDeleteNode={handleDeleteNode}
+                        onClose={() => setSelectedNodeId(null)}
+                    />
+                </div>
+            )}
+
+            {/* Header Absolute */}
+            <div className="flex items-center justify-between px-6 py-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 z-50 absolute top-0 left-0 right-0">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="shrink-0 text-zinc-400 hover:text-white">
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
-                </Link>
-                <div>
-                    <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-primary" />
-                        Criar Nova Automação
-                    </h1>
-                    <p className="text-xs text-zinc-400">Escolha um template para começar ou crie do zero</p>
+                    <div className="flex flex-col">
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            className="bg-transparent border-none text-lg font-bold text-white focus:outline-none focus:ring-0 p-0 placeholder-zinc-600 h-6"
+                            placeholder="Nome do Fluxo..."
+                        />
+                        <span className="text-xs text-emerald-500 flex items-center gap-1 font-medium tracking-wide">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Modo de Edição Visual
+                        </span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-400">Página:</span>
+                        <select
+                            className="bg-zinc-900 border border-zinc-800 text-sm rounded-md px-3 py-1.5 text-zinc-200 outline-none w-48"
+                            value={selectedPageId}
+                            onChange={e => setSelectedPageId(e.target.value)}
+                        >
+                            <option value="" disabled>Selecione...</option>
+                            {pages.map(p => (
+                                <option key={p.id} value={p.pageId}>{p.pageName}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <Button onClick={onLayout} variant="outline" className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Organizar Layout
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving} className="bg-[#0084FF] hover:bg-[#0070D1] text-white font-medium shadow-lg shadow-[#0084FF]/20 px-6">
+                        {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                        Salvar Rascunho
+                    </Button>
                 </div>
             </div>
 
-            {/* Template Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {templates.map((t) => {
-                    const colors = colorMap[t.color] || colorMap.blue
-                    return (
-                        <Card
-                            key={t.id}
-                            className={`relative cursor-pointer transition-all duration-300 ${colors.bg} border ${colors.border} hover:shadow-xl ${colors.glow} group overflow-hidden`}
-                            onClick={() => setSelectedTemplate(t.template)}
-                        >
-                            {t.recommended && (
-                                <div className="absolute top-3 right-3">
-                                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] uppercase tracking-wider font-bold animate-pulse">
-                                        ⭐ Recomendado
-                                    </Badge>
-                                </div>
-                            )}
-
-                            <CardHeader className="pb-3">
-                                <div className={`w-12 h-12 rounded-xl ${colors.icon} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
-                                    <t.icon className={`w-6 h-6 ${colors.text}`} />
-                                </div>
-                                <CardTitle className="text-white text-lg">{t.title}</CardTitle>
-                                <CardDescription className="text-zinc-400 text-sm leading-relaxed">
-                                    {t.description}
-                                </CardDescription>
-                            </CardHeader>
-
-                            <CardContent className="space-y-4">
-                                {/* Features */}
-                                <div className="space-y-2">
-                                    {t.features.map((f, i) => (
-                                        <div key={i} className="flex items-center gap-2">
-                                            <CheckCircle2 className={`w-3.5 h-3.5 ${colors.text} shrink-0`} />
-                                            <span className="text-xs text-zinc-400">{f}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Tags */}
-                                <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/5">
-                                    {t.tags.map((tag) => (
-                                        <Badge
-                                            key={tag}
-                                            variant="outline"
-                                            className="text-[10px] border-zinc-700/50 text-zinc-500"
-                                        >
-                                            {tag}
-                                        </Badge>
-                                    ))}
-                                </div>
-
-                                {/* CTA */}
-                                <Button
-                                    className={`w-full mt-2 border ${colors.border} bg-transparent ${colors.text} hover:bg-white/5 group-hover:translate-x-0 transition-all`}
-                                    variant="outline"
-                                >
-                                    Usar Template
-                                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    )
-                })}
-            </div>
-
-            {/* Start from scratch */}
-            <div className="text-center pt-4">
-                <Button
-                    variant="ghost"
-                    className="text-zinc-500 hover:text-zinc-300 gap-2"
-                    onClick={() => setSelectedTemplate({})}
+            {/* Canvas */}
+            <div className="flex-1 w-full h-full pt-[73px] ml-64" ref={reactFlowWrapper}>
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onNodesDelete={(deletedNodes) => {
+                        if (deletedNodes.some(n => n.id === selectedNodeId)) {
+                            setSelectedNodeId(null);
+                        }
+                    }}
+                    onConnect={onConnect}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onNodeClick={onNodeClick}
+                    onPaneClick={onPaneClick}
+                    nodeTypes={nodeTypes}
+                    connectionLineType={ConnectionLineType.SmoothStep}
+                    fitView
+                    minZoom={0.1}
+                    className="dark"
+                    proOptions={{ hideAttribution: true }}
+                    deleteKeyCode={["Backspace", "Delete"]}
                 >
-                    <Zap className="w-4 h-4" />
-                    Criar do zero (em branco)
-                </Button>
+                    <Background color="#27272a" gap={24} size={1} />
+                    <Controls className="bg-zinc-900 border-zinc-800 fill-white" />
+
+                    <Panel position="bottom-center" className="bg-black/80 backdrop-blur border border-zinc-500/30 text-white px-4 py-2 rounded-full text-xs font-medium shadow-2xl flex items-center gap-2 mb-4">
+                        Arraste blocos da barra lateral para cá. Clique em um bloco para editá-lo à direita.
+                    </Panel>
+                </ReactFlow>
             </div>
         </div>
+    )
+}
+
+export default function BroadcastCreatePage() {
+    return (
+        <ReactFlowProvider>
+            <FlowBuilderContent />
+        </ReactFlowProvider>
     )
 }

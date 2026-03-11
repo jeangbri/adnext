@@ -128,7 +128,7 @@ export default function LeadsPage() {
             try {
                 const [pagesRes, rulesRes] = await Promise.all([
                     fetch('/api/messenger/status'),
-                    fetch('/api/automations')
+                    fetch('/api/workflows')
                 ])
                 if (pagesRes.ok) {
                     const pagesData = await pagesRes.json()

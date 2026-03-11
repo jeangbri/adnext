@@ -187,7 +187,7 @@ async function handleMessagingEvent(pageId: string, event: MessengerEvent) {
     if (!inputText) return;
 
     // 10. Execute Engine
-    await matchAndExecute(page, contact, inputText, logEntry.id, triggerType, isOutside24H);
+    await matchAndExecute(page, contact, inputText, logEntry.id, triggerType, isOutside24H, messageType);
 }
 
 async function handleFeedEvent(pageId: string, value: any) {
@@ -280,7 +280,7 @@ function checkOutside24H(conversation: any, thresholdHours = 24): boolean {
 // ENGINE: MATCHING & EXECUTION
 // ------------------------------------------------------------------
 
-async function matchAndExecute(page: any, contact: any, text: string, incomingLogId: string, triggerType = 'MESSAGE_ANY', isOutside24H = false) {
+async function matchAndExecute(page: any, contact: any, text: string, incomingLogId: string, triggerContext = 'MESSAGE_ANY', isOutside24H = false, messageType = 'text') {
     // ---------------------------------------------------------
     // FLOW JUMP OVERRIDE
     // ---------------------------------------------------------
@@ -345,7 +345,7 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
     }
 
     // 1. Fetch Active Rules (Filter by type in memory)
-    const validTypes = ['MESSAGE_ANY'];
+    const validTypes = ['MESSAGE_ANY', 'MESSAGE_KEYWORD', 'POSTBACK', 'REF_PARAM'];
     if (isOutside24H) validTypes.push('MESSAGE_OUTSIDE_24H');
 
     // ---------------------------------------------------------
@@ -428,40 +428,73 @@ async function matchAndExecute(page: any, contact: any, text: string, incomingLo
         // If none found, we run standard rules.
     }
 
-    // Split rules
+    // Split rules into categories for execution priority
+    // Priority: 1. Postback/Ref, 2. Keywords, 3. 24h Limits, 4. Catch-all
+    const rulesPostback = rules.filter(r => r.triggerType === 'POSTBACK' || r.triggerType === 'REF_PARAM');
+    const rulesKeyword = rules.filter(r => r.triggerType === 'MESSAGE_KEYWORD');
     const rules24h = rules.filter(r => r.triggerType === 'MESSAGE_OUTSIDE_24H');
     const rulesAny = rules.filter(r => r.triggerType === 'MESSAGE_ANY');
 
-    // Try 24h Rules first
-    if (isOutside24H) {
-        for (const rule of rules24h) {
-            // Check Page Scope
+    // Attempt 1: POSTBACKS / REFS (Highest precision)
+    if (messageType === 'postback' && !matchedRule) {
+        for (const rule of rulesPostback) {
             if (!checkPageScope(rule, page.pageId)) continue;
-
-            // Check config (e.g. onlyIfReturning)
-            const config = rule.triggerConfig as any;
-            if (config?.onlyIfReturning) {
-                // We need to check if they have previous messages? 
-                // contact.lastMessageText might answer this, or conversation.lastUserMessageAt
-                // For now assume true if we are here?
-            }
-
-            // For 24h rules, usually "keywords" might be irrelevant (catch-all for "return"), 
-            // OR they might still use keywords. Let's assume they use keywords if defined.
-            if (checkMatch(rule, text)) {
+            const payloadTarget = (rule.triggerConfig as any)?.triggerPayload;
+            if (payloadTarget && text.toUpperCase() === String(payloadTarget).toUpperCase()) {
+                if (await checkCooldown(rule, contact)) continue;
                 matchedRule = rule;
                 break;
             }
         }
     }
 
-    // If no 24h match (or not outside 24h), try standard rules
+    // Attempt 2: MESSAGE KEYWORDS
+    if (messageType === 'text' && !matchedRule) {
+        for (const rule of rulesKeyword) {
+            if (!checkPageScope(rule, page.pageId)) continue;
+            const keywords = rule.keywords || [];
+            const matchMode = rule.matchType || 'CONTAINS';
+
+            let isMatch = false;
+
+            // Re-implement keyword check specifically since legacy checkMatch might break
+            const cleanText = text.toLowerCase();
+
+            if (keywords.length === 0) {
+                isMatch = true; // Fallback anomaly
+            } else if (matchMode === 'EXACT') {
+                isMatch = keywords.some((k: string) => cleanText === k.toLowerCase());
+            } else if (matchMode === 'STARTS_WITH') {
+                isMatch = keywords.some((k: string) => cleanText.startsWith(k.toLowerCase()));
+            } else {
+                isMatch = keywords.some((k: string) => cleanText.includes(k.toLowerCase())); // Contains defaults
+            }
+
+            if (isMatch) {
+                if (await checkCooldown(rule, contact)) continue;
+                matchedRule = rule;
+                break;
+            }
+        }
+    }
+
+    // Attempt 3: 24h Rules (if outside window and no specific match)
+    if (isOutside24H && !matchedRule) {
+        for (const rule of rules24h) {
+            if (!checkPageScope(rule, page.pageId)) continue;
+
+            if (checkMatch(rule, text)) { // Legacy fallback check
+                matchedRule = rule;
+                break;
+            }
+        }
+    }
+
+    // Attempt 4: Standard / Any Rules
     if (!matchedRule) {
-        // Fallback or Normal flow
         for (const rule of rulesAny) {
             if (!checkPageScope(rule, page.pageId)) continue;
             if (checkMatch(rule, text)) {
-                // Check Cooldown
                 if (await checkCooldown(rule, contact)) continue;
                 matchedRule = rule;
                 break;

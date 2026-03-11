@@ -18,7 +18,8 @@ import {
     HelpCircle,
     LogOut,
     Settings,
-    Phone
+    Phone,
+    GitBranch
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'

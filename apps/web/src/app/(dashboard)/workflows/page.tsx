@@ -1,169 +1,188 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Zap, Edit } from "lucide-react"
-import { DeleteRuleButton } from "./_components/delete-button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Plus, GitBranch, Clock, Users, Zap, Trash2, Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
-export default function AutomationsPage() {
-    const [rules, setRules] = useState<any[]>([])
+export default function BroadcastFlowListPage() {
+    const router = useRouter()
+    const [flows, setFlows] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
 
-    const fetchRules = useCallback(async () => {
+    const fetchFlows = async () => {
+        setLoading(true)
         try {
-            const res = await fetch('/api/automations')
+            const res = await fetch('/api/workflows')
             if (res.ok) {
                 const data = await res.json()
-                setRules(data)
+                setFlows(data)
             }
-        } catch (e) {
-            console.error("Failed to load automations", e)
-        } finally {
-            setLoading(false)
-        }
-    }, [])
+        } catch (e) { console.error(e) }
+        finally { setLoading(false) }
+    }
 
     useEffect(() => {
-        fetchRules()
-    }, [fetchRules])
+        fetchFlows()
+    }, [])
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation()
+        if (!confirm("Tem certeza que deseja excluir esta regra? Todos os nós e ações associados serão removidos.")) return
+
+        setDeletingId(id)
+        try {
+            const res = await fetch(`/api/workflows/${id}`, {
+                method: 'DELETE'
+            })
+            if (res.ok) {
+                toast.success("Regra excluída com sucesso!")
+                setFlows(flows.filter(f => f.id !== id))
+            } else {
+                const errData = await res.json()
+                toast.error("Erro: " + (errData.error || "Erro ao excluir regra"))
+            }
+        } catch (error) {
+            toast.error("Erro ao comunicar com o servidor")
+        } finally {
+            setDeletingId(null)
+        }
+    }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">Automações</h1>
-                    <p className="text-muted-foreground">Gerencie suas regras de resposta automática para o Messenger.</p>
+                    <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                        <GitBranch className="w-8 h-8 text-[#0084FF]" />
+                        Regras
+                    </h2>
+                    <p className="text-zinc-400 mt-1">
+                        Crie funis de engajamento interativos em formato de árvore para o Messenger.
+                    </p>
                 </div>
                 <Link href="/workflows/create">
-                    <Button className="bg-[#0084FF] hover:bg-[#0070D1] text-white gap-2 shadow-lg shadow-blue-500/20">
+                    <Button className="bg-[#0084FF] hover:bg-[#0070D1] text-white gap-2">
                         <Plus className="w-4 h-4" />
-                        Criar Regra
+                        Novo Flow
                     </Button>
                 </Link>
             </div>
 
-            <div className="border border-white/10 rounded-lg bg-zinc-950/50 backdrop-blur overflow-hidden">
-                {loading ? (
-                    /* Table skeleton */
-                    <div>
-                        <div className="bg-zinc-900/50 border-b border-white/5 px-6 py-4 flex gap-8">
-                            {["w-20", "w-32", "w-16", "w-12", "w-16", "w-16"].map((w, i) => (
-                                <Skeleton key={i} className={`h-4 ${w} bg-zinc-800`} />
-                            ))}
+            {/* Info Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-[#0084FF]/5 border border-[#0084FF]/20">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-lg bg-[#0084FF]/10">
+                            <Zap className="w-4 h-4 text-[#0084FF]" />
                         </div>
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="px-6 py-4 flex items-center gap-8 border-b border-white/5 last:border-0">
-                                <Skeleton className="h-4 w-28 bg-zinc-800" />
-                                <div className="flex gap-1.5">
-                                    <Skeleton className="h-5 w-14 rounded-full bg-zinc-800" />
-                                    <Skeleton className="h-5 w-18 rounded-full bg-zinc-800" />
-                                </div>
-                                <Skeleton className="h-4 w-8 bg-zinc-800" />
-                                <Skeleton className="h-4 w-16 bg-zinc-800" />
-                                <Skeleton className="h-5 w-14 rounded-full bg-zinc-800" />
-                                <div className="ml-auto flex gap-2">
-                                    <Skeleton className="h-8 w-8 rounded bg-zinc-800" />
-                                    <Skeleton className="h-8 w-8 rounded bg-zinc-800" />
-                                </div>
-                            </div>
-                        ))}
+                        <span className="font-semibold text-white text-sm">Gatilhos Personalizados</span>
                     </div>
-                ) : rules.length === 0 ? (
-                    <div className="p-12 text-center space-y-4">
-                        <div className="mx-auto w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center">
-                            <Zap className="w-6 h-6 text-zinc-500" />
+                    <p className="text-xs text-zinc-400">Inicie fluxos baseados na interação do usuário.</p>
+                </div>
+                <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-lg bg-green-500/10">
+                            <Users className="w-4 h-4 text-green-500" />
                         </div>
-                        <div>
-                            <h3 className="text-lg font-medium text-white">Nenhuma regra encontrada</h3>
-                            <p className="text-zinc-500 text-sm">Crie sua primeira automação por palavra-chave.</p>
-                        </div>
+                        <span className="font-semibold text-white text-sm">Botões Interativos</span>
                     </div>
-                ) : (
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-zinc-900/50 text-zinc-400 font-medium border-b border-white/5">
-                            <tr>
-                                <th className="px-6 py-4">Nome</th>
-                                <th className="px-6 py-4">Gatilho (Keywords)</th>
-                                <th className="px-6 py-4">Prioridade</th>
-                                <th className="px-6 py-4">Ações</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4 text-right">Opções</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-zinc-300">
-                            {rules.map((rule) => (
-                                <tr key={rule.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-6 py-4 font-medium text-white">
-                                        <div className="flex items-center gap-2">
-                                            {rule.name}
-                                            {rule.defaultForPages && rule.defaultForPages.length > 0 && (
-                                                <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20 px-1 py-0 h-4">
-                                                    Fallback
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 max-w-xs truncate">
-                                        <div className="flex flex-col gap-2">
-                                            {rule.triggerType && rule.triggerType !== 'MESSAGE_ANY' && (
-                                                <span className={`px-2 py-0.5 w-fit rounded text-[10px] font-bold uppercase
-                                                    ${rule.triggerType === 'COMMENT_ON_POST' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
-                                                        rule.triggerType === 'MESSAGE_OUTSIDE_24H' ? 'bg-orange-500/20 text-orange-500 border border-orange-500/30' :
-                                                            'bg-zinc-800 text-zinc-400'}
-                                                `}>
-                                                    {rule.triggerType === 'COMMENT_ON_POST' ? 'Comentário' :
-                                                        rule.triggerType === 'MESSAGE_OUTSIDE_24H' ? 'Reengajamento (>24h)' :
-                                                            rule.triggerType}
-                                                </span>
-                                            )}
-                                            <div className="flex flex-wrap gap-1">
-                                                {rule.keywords.length > 0 ? rule.keywords.slice(0, 3).map((k: string, i: number) => (
-                                                    <span key={i} className="px-2 py-0.5 rounded-full bg-zinc-800 text-xs border border-white/5">
-                                                        {k}
-                                                    </span>
-                                                )) : (
-                                                    rule.triggerType === 'MESSAGE_OUTSIDE_24H' ?
-                                                        <span className="text-xs text-zinc-500 italic">Qualquer msg</span> :
-                                                        rule.triggerType === 'COMMENT_ON_POST' && rule.triggerConfig?.keywords?.length === 0 ?
-                                                            <span className="text-xs text-zinc-500 italic">Qualquer comentário</span> :
-                                                            <span className="text-xs text-zinc-600">-</span>
-                                                )}
-                                                {rule.keywords.length > 3 && (
-                                                    <span className="text-xs text-zinc-500">+{rule.keywords.length - 3}</span>
-                                                )}
+                    <p className="text-xs text-zinc-400">Cada clique em botão avança o usuário para o próximo nó do fluxo automaticamente.</p>
+                </div>
+                <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-lg bg-amber-500/10">
+                            <Clock className="w-4 h-4 text-amber-500" />
+                        </div>
+                        <span className="font-semibold text-white text-sm">Automação Contínua</span>
+                    </div>
+                    <p className="text-xs text-zinc-400">Passe a responder contatos em tempo real com sequências visuais.</p>
+                </div>
+            </div>
+
+            <Card className="bg-zinc-900/50 border-zinc-800">
+                <CardHeader>
+                    <CardTitle className="text-white">Suas Regras</CardTitle>
+                    <CardDescription>Funis de engajamento ativos para o Messenger.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {loading ? (
+                        <div className="text-center py-8 text-zinc-500">Carregando...</div>
+                    ) : flows.length === 0 ? (
+                        <div className="text-center py-16 border border-dashed border-zinc-800 rounded-lg">
+                            <GitBranch className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-white mb-2">Nenhum flow criado</h3>
+                            <p className="text-zinc-500 mb-6 max-w-sm mx-auto">
+                                Crie sua primeira Regra para engajar seus contatos com uma sequência de mensagens interativas.
+                            </p>
+                            <Link href="/workflows/create">
+                                <Button variant="outline" className="border-zinc-700 hover:bg-zinc-800 gap-2">
+                                    <Plus className="w-4 h-4" />
+                                    Criar Primeiro Flow
+                                </Button>
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {flows.map(flow => {
+                                const handleNavigate = () => {
+                                    if (!deletingId) router.push(`/workflows/${flow.id}`)
+                                }
+
+                                return (
+                                    <div
+                                        key={flow.id}
+                                        className="flex items-center justify-between p-4 rounded-lg bg-zinc-900/50 border border-zinc-800/50 hover:border-zinc-700 transition-colors cursor-pointer group"
+                                        onClick={handleNavigate}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-[#0084FF]/10 flex items-center justify-center group-hover:bg-[#0084FF]/20 transition-colors">
+                                                <GitBranch className="w-5 h-5 text-[#0084FF]" />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-medium text-white">{flow.name}</h4>
+                                                <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
+                                                    {flow.page && <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {flow.page.pageName}</span>}
+                                                    <span>•</span>
+                                                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {format(new Date(flow.createdAt), "dd 'de' MMM, HH:mm", { locale: ptBR })}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {rule.priority}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {rule.actions?.length ?? 0} ações
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${rule.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                            {rule.isActive ? 'Ativo' : 'Pausado'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Link href={`/workflows/${rule.id}`}>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-zinc-400 hover:text-white">
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
-                                            </Link>
-                                            <DeleteRuleButton ruleId={rule.id} />
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={flow.isActive
+                                                ? "bg-green-500/10 text-green-500 border-0"
+                                                : "bg-zinc-500/10 text-zinc-500 border-0"
+                                            }>
+                                                {flow.isActive ? "Ativo" : "Pausado"}
+                                            </Badge>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 sm:opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                onClick={(e) => handleDelete(e, flow.id)}
+                                                disabled={deletingId === flow.id}
+                                            >
+                                                {deletingId === flow.id ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-red-400" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4" />
+                                                )}
+                                            </Button>
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     )
 }

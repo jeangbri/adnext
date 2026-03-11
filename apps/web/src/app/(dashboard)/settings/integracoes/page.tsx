@@ -42,7 +42,7 @@ export default function IntegrationsPage() {
 
     const loadRules = async () => {
         try {
-            const res = await fetch('/api/automations')
+            const res = await fetch('/api/workflows')
             if (res.ok) {
                 const data = await res.json()
                 setRules(data)
