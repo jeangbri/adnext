@@ -1,0 +1,286 @@
+[
+  {
+    "id": "936cd018-be5c-4ff1-a485-a7d47eee4d6b",
+    "contactId": "fdb03def-af76-4209-8f8b-c6472fa7da58",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "sender": {
+        "id": "27066076009661213"
+      },
+      "delivery": {
+        "mids": [
+          "m_JOTqBVltEnyiJpwQ-QGzeV8dm73QmSbN1ra9Hq8nIh5Y_x6MRLimKhlLhS-rldWQYpc9dhpQuUN2yptRrGzmHw"
+        ],
+        "watermark": 1773253145436
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254319940
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:38:43.582Z",
+    "campaignId": null
+  },
+  {
+    "id": "c8ea6e1c-6ca1-4e6f-983c-a23c977400a6",
+    "contactId": "3e141f6d-fd5f-4690-9e0d-89b6bce70b1a",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "sender": {
+        "id": "26019447104341032"
+      },
+      "delivery": {
+        "mids": [
+          "m_aai0jrl6EZlNjrHbb827VD_zKO9VSn_MYCxD4UPrYAiW4evkuPIllKZVvlmBsRkA_smoEyC0ML_rUtme4ZDfJA"
+        ],
+        "watermark": 1773251679666
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254316297
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:38:40.302Z",
+    "campaignId": null
+  },
+  {
+    "id": "6e88a9da-f427-46d4-80af-52c5824c1fe0",
+    "contactId": "dab15631-b29d-4df6-ad35-151f7241f1d6",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "sender": {
+        "id": "25833327873027357"
+      },
+      "delivery": {
+        "mids": [
+          "m_7T8TaImwhaDaom3-kSTnDKiXj621XYBi1KONDBka4dDk2bYp6wK7zDVSgWZzKa5eTfxcSZKsKkzWTS4D0ImR7A"
+        ],
+        "watermark": 1773254225060
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254228997
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:37:12.204Z",
+    "campaignId": null
+  },
+  {
+    "id": "66358a1b-ff43-4687-9150-ce8a92161ac0",
+    "contactId": "6fa2d235-8072-4f0a-aef6-913fc251964d",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "read": {
+        "watermark": 1773254037208
+      },
+      "sender": {
+        "id": "25065329086474369"
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254038100
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:34:01.591Z",
+    "campaignId": null
+  },
+  {
+    "id": "9a81f97e-f890-44c6-a4e2-df4c05828b56",
+    "contactId": "6fa2d235-8072-4f0a-aef6-913fc251964d",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "sender": {
+        "id": "25065329086474369"
+      },
+      "delivery": {
+        "mids": [
+          "m_1R9KD1NV6Fa11Hz0L6K6kcJ6tbeUa19HcYg5S4J2GD_YCWWkRq9Px-81KVCV84xlae6IDLJGhlv4dTavinqOmg"
+        ],
+        "watermark": 1773254037208
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254037503
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:34:00.514Z",
+    "campaignId": null
+  },
+  {
+    "id": "b685e5fd-c274-4339-97cd-57f0a014af15",
+    "contactId": "6fa2d235-8072-4f0a-aef6-913fc251964d",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "FLOW_JUMP::undefined",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "SENT",
+    "error": null,
+    "rawEvent": {
+      "sender": {
+        "id": "25065329086474369"
+      },
+      "postback": {
+        "mid": "m_29BQ65O2ijwP5A1aaLdlLcJ6tbeUa19HcYg5S4J2GD8UCLuJvNHpL0v33B317t7YVshbT0E-fleZm_TGPx4pLQ",
+        "title": "Ver Cursos",
+        "payload": "FLOW_JUMP::undefined"
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254028600
+    },
+    "rawResponse": {
+      "message_id": "m_1R9KD1NV6Fa11Hz0L6K6kcJ6tbeUa19HcYg5S4J2GD_YCWWkRq9Px-81KVCV84xlae6IDLJGhlv4dTavinqOmg",
+      "recipient_id": "25065329086474369"
+    },
+    "createdAt": "2026-03-11T18:33:52.574Z",
+    "campaignId": null
+  },
+  {
+    "id": "4397f271-4fc2-452d-8df2-02e1673a1cd4",
+    "contactId": "6fa2d235-8072-4f0a-aef6-913fc251964d",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "read": {
+        "watermark": 1773254018000
+      },
+      "sender": {
+        "id": "25065329086474369"
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254018949
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:33:43.270Z",
+    "campaignId": null
+  },
+  {
+    "id": "e8c0c7d7-9bff-4fac-9f6e-475853686649",
+    "contactId": "6fa2d235-8072-4f0a-aef6-913fc251964d",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "sender": {
+        "id": "25065329086474369"
+      },
+      "delivery": {
+        "mids": [
+          "m_pFQUJ1CwHv0MrW6_1MxiocJ6tbeUa19HcYg5S4J2GD9S97WAh--zBsnM86071pLukPkfAe4w1JzOgpDKn5ESug"
+        ],
+        "watermark": 1773254018000
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254018392
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:33:41.477Z",
+    "campaignId": null
+  },
+  {
+    "id": "2d7eea69-bf6e-4619-ab7d-7822e31a74ae",
+    "contactId": "6fa2d235-8072-4f0a-aef6-913fc251964d",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "QUERO",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "SENT",
+    "error": null,
+    "rawEvent": {
+      "sender": {
+        "id": "25065329086474369"
+      },
+      "message": {
+        "mid": "m_vUx9VmniyOc3IIEz1fwaisJ6tbeUa19HcYg5S4J2GD_9d9qxWL3LqNmVomnMqN3HHickTBmOtKoRc7iPH1vCCg",
+        "text": "QUERO"
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254009058
+    },
+    "rawResponse": {
+      "message_id": "m_pFQUJ1CwHv0MrW6_1MxiocJ6tbeUa19HcYg5S4J2GD9S97WAh--zBsnM86071pLukPkfAe4w1JzOgpDKn5ESug",
+      "recipient_id": "25065329086474369"
+    },
+    "createdAt": "2026-03-11T18:33:32.857Z",
+    "campaignId": null
+  },
+  {
+    "id": "966d3c01-0fe3-480f-a7a1-949fad56e0dd",
+    "contactId": "6fa2d235-8072-4f0a-aef6-913fc251964d",
+    "pageId": "978744651987190",
+    "direction": "IN",
+    "incomingText": "[unknown]",
+    "matchedRuleId": null,
+    "actionType": null,
+    "status": "RECEIVED",
+    "error": null,
+    "rawEvent": {
+      "read": {
+        "watermark": 1773253685869
+      },
+      "sender": {
+        "id": "25065329086474369"
+      },
+      "recipient": {
+        "id": "978744651987190"
+      },
+      "timestamp": 1773254004781
+    },
+    "rawResponse": null,
+    "createdAt": "2026-03-11T18:33:28.829Z",
+    "campaignId": null
+  }
+]

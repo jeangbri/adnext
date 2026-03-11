@@ -1,0 +1,71 @@
+[
+  {
+    "id": "593d7ace-9c3e-4577-aced-5ddc2fd88179",
+    "name": "Welcome",
+    "prio": 0,
+    "type": "MESSAGE_ANY",
+    "kw": [
+      "QUERO VER OS CURSOS",
+      "QUERO"
+    ]
+  },
+  {
+    "id": "385971f2-8275-40d1-8add-961d23c6d863",
+    "name": "Quiz - Captura de Leads",
+    "prio": 10,
+    "type": "MESSAGE_ANY",
+    "kw": [
+      "oi"
+    ]
+  },
+  {
+    "id": "3639ea25-e52f-412b-8af5-d90fde06543f",
+    "name": "Regra Lucas",
+    "prio": 100,
+    "type": "MESSAGE_KEYWORD",
+    "kw": [
+      "QUERO"
+    ],
+    "legacy": true
+  },
+  {
+    "id": "5ccaed3e-5dee-4cbb-b6dd-dc2891d992f8",
+    "name": "Regra Lucas - node_1773251397736_essdb",
+    "prio": 10,
+    "type": "MESSAGE_ANY",
+    "kw": [],
+    "legacy": false
+  },
+  {
+    "id": "fe5fab5d-0e1d-46a3-b5b2-cb61590915dd",
+    "name": "Regra Lucas - node_1773251435092_e4kxq",
+    "prio": 10,
+    "type": "MESSAGE_ANY",
+    "kw": [],
+    "legacy": false
+  },
+  {
+    "id": "6b46a353-cdd3-4b87-b152-42ff7c10969d",
+    "name": "Regra Lucas - node_1773251493841_tn0l7",
+    "prio": 10,
+    "type": "MESSAGE_ANY",
+    "kw": [],
+    "legacy": false
+  },
+  {
+    "id": "6fc151ec-e97f-4241-8ae2-032fedeb2a65",
+    "name": "Regra Lucas - node_1773251551651_q5gh3",
+    "prio": 10,
+    "type": "MESSAGE_ANY",
+    "kw": [],
+    "legacy": false
+  },
+  {
+    "id": "dc2bdef8-cb1c-484c-b248-c95c3058062a",
+    "name": "Regra Lucas - node_1773251616270_b8ckk",
+    "prio": 10,
+    "type": "MESSAGE_ANY",
+    "kw": [],
+    "legacy": false
+  }
+]

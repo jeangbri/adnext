@@ -148,13 +148,14 @@ export async function POST(req: NextRequest) {
                 .filter((n: any) => createdRules[n.id] !== rootRuleId)
                 .map((n: any) => n.id);
 
-            if (childNodeIds.length > 0) {
-                await prisma.automationRule.updateMany({
-                    where: { id: { in: childNodeIds.map(id => createdRules[id]) } },
+            for (const childId of childNodeIds) {
+                await prisma.automationRule.update({
+                    where: { id: createdRules[childId] },
                     data: {
                         triggerConfig: {
                             isBroadcastFlow: false,
-                            flowRootId: rootRuleId
+                            flowRootId: rootRuleId,
+                            nodeId: childId
                         }
                     }
                 });
