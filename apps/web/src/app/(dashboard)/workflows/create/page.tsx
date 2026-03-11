@@ -262,7 +262,7 @@ function FlowBuilderContent() {
 
     const handleSave = async () => {
         if (!name.trim()) return toast.error("Dê um nome ao fluxo")
-        // if (!selectedPageId) return toast.error("Selecione uma página do Facebook")
+        if (!selectedPageId) return toast.error("Selecione uma página do Facebook")
 
         setSaving(true)
         try {

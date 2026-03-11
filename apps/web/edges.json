@@ -1,0 +1,97 @@
+[
+  {
+    "id": "e_trigger_root",
+    "type": "default",
+    "style": {
+      "stroke": "#10b981",
+      "strokeWidth": 2
+    },
+    "source": "trigger",
+    "target": "root",
+    "animated": true,
+    "markerEnd": {
+      "type": "arrowclosed",
+      "color": "#10b981"
+    }
+  },
+  {
+    "id": "xy-edge__rootbtn_1773250750384_voqae-node_1773251397736_essdb",
+    "type": "default",
+    "style": {
+      "stroke": "#0084FF",
+      "strokeWidth": 2
+    },
+    "source": "root",
+    "target": "node_1773251397736_essdb",
+    "animated": true,
+    "markerEnd": {
+      "type": "arrowclosed",
+      "color": "#0084FF"
+    },
+    "sourceHandle": "btn_1773250750384_voqae"
+  },
+  {
+    "id": "xy-edge__node_1773251397736_essdbbtn_1773251397736_2v5l4-node_1773251435092_e4kxq",
+    "type": "default",
+    "style": {
+      "stroke": "#0084FF",
+      "strokeWidth": 2
+    },
+    "source": "node_1773251397736_essdb",
+    "target": "node_1773251435092_e4kxq",
+    "animated": true,
+    "markerEnd": {
+      "type": "arrowclosed",
+      "color": "#0084FF"
+    },
+    "sourceHandle": "btn_1773251397736_2v5l4"
+  },
+  {
+    "id": "xy-edge__node_1773251397736_essdbbtn_1773251422184-node_1773251493841_tn0l7",
+    "type": "default",
+    "style": {
+      "stroke": "#0084FF",
+      "strokeWidth": 2
+    },
+    "source": "node_1773251397736_essdb",
+    "target": "node_1773251493841_tn0l7",
+    "animated": true,
+    "markerEnd": {
+      "type": "arrowclosed",
+      "color": "#0084FF"
+    },
+    "sourceHandle": "btn_1773251422184"
+  },
+  {
+    "id": "xy-edge__rootbtn_1773250750384_94x48-node_1773251551651_q5gh3",
+    "type": "default",
+    "style": {
+      "stroke": "#0084FF",
+      "strokeWidth": 2
+    },
+    "source": "root",
+    "target": "node_1773251551651_q5gh3",
+    "animated": true,
+    "markerEnd": {
+      "type": "arrowclosed",
+      "color": "#0084FF"
+    },
+    "sourceHandle": "btn_1773250750384_94x48"
+  },
+  {
+    "id": "xy-edge__node_1773251551651_q5gh3btn_1773251607484-node_1773251616270_b8ckk",
+    "type": "default",
+    "style": {
+      "stroke": "#0084FF",
+      "strokeWidth": 2
+    },
+    "source": "node_1773251551651_q5gh3",
+    "target": "node_1773251616270_b8ckk",
+    "animated": true,
+    "markerEnd": {
+      "type": "arrowclosed",
+      "color": "#0084FF"
+    },
+    "sourceHandle": "btn_1773251607484"
+  }
+]

@@ -113,6 +113,20 @@ function FlowCanvas({ params }: { params: { id: string } }) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
+    const [pages, setPages] = useState<any[]>([])
+    const [selectedPageId, setSelectedPageId] = useState<string>('')
+    const [updatingPage, setUpdatingPage] = useState(false)
+
+    useEffect(() => {
+        fetch('/api/messenger/status')
+            .then(r => r.json())
+            .then(data => {
+                setPages(data.accounts || [])
+            })
+            .catch(e => console.error("Erro ao carregar páginas"))
+    }, [])
+
+
     // ─── Build Graph ─────────────────────────────────────────────────────────
     const buildGraph = useCallback((root: FlowRule, children: FlowRule[], stats: Record<string, number>) => {
         // 1. Try to load from saved canvas state if available
@@ -193,6 +207,9 @@ function FlowCanvas({ params }: { params: { id: string } }) {
                 if (res.ok) {
                     const data = await res.json()
                     setRootData(data.root)
+                    if (data.root?.page?.pageId) {
+                        setSelectedPageId(data.root.page.pageId)
+                    }
                     buildGraph(data.root, data.children || [], data.stats || {})
                 } else if (res.status === 404) {
                     toast.error("Flow não encontrado")
@@ -256,6 +273,30 @@ function FlowCanvas({ params }: { params: { id: string } }) {
         }
     }
 
+    const handleChangePage = async (pageId: string) => {
+        setUpdatingPage(true)
+        try {
+            const res = await fetch(`/api/workflows/${params.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pageId })
+            })
+            if (res.ok) {
+                const data = await res.json()
+                const newPage = pages.find(p => p.pageId === data.pageId)
+                setRootData(prev => prev ? { ...prev, page: { pageId: data.pageId, pageName: newPage?.pageName || '' } } : prev)
+                setSelectedPageId(data.pageId)
+                toast.success("Página atualizada!")
+            } else {
+                toast.error("Erro ao atualizar página")
+            }
+        } catch (e) {
+            toast.error("Erro de conexão")
+        } finally {
+            setUpdatingPage(false)
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center">
@@ -308,6 +349,21 @@ function FlowCanvas({ params }: { params: { id: string } }) {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mr-2">
+                        <span className="text-xs text-zinc-400">Página:</span>
+                        <select
+                            className="bg-zinc-900 border border-zinc-800 text-xs rounded-md px-2 py-1.5 text-zinc-200 outline-none w-40"
+                            value={selectedPageId}
+                            disabled={updatingPage}
+                            onChange={e => handleChangePage(e.target.value)}
+                        >
+                            <option value="" disabled>Selecione...</option>
+                            {pages.map(p => (
+                                <option key={p.id} value={p.pageId}>{p.pageName}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Status Badge */}
                     <div className={cn(
                         "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border mr-2",

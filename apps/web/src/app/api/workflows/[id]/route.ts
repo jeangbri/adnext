@@ -62,14 +62,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // ─── PATCH /api/workflows/:id ───────────────────────────────────────────
-// Toggle isActive for all rules of this flow
+// Toggle isActive or change pageId for all rules of this flow
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const workspace = await getPrimaryWorkspace(user.id, user.email || '');
-    const { isActive } = await req.json();
+    const { isActive, pageId } = await req.json();
 
     // Verify ownership
     const root = await prisma.automationRule.findFirst({
@@ -84,30 +84,38 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         return NextResponse.json({ error: "Flow not found" }, { status: 404 });
     }
 
-    // Toggle root + all child rules
-    await prisma.automationRule.update({
-        where: { id: params.id },
-        data: { isActive }
-    });
-
-    // Update children (rules with flowRootId = this id)
-    // Use raw update since Prisma doesn't support JSON path filter in `updateMany` in all versions
-    const children = await prisma.automationRule.findMany({
-        where: {
-            workspaceId: workspace.id,
-            triggerConfig: { path: ['flowRootId'], equals: params.id }
-        },
-        select: { id: true }
-    });
-
-    if (children.length > 0) {
-        await prisma.automationRule.updateMany({
-            where: { id: { in: children.map(c => c.id) } },
-            data: { isActive }
-        });
+    const dataToUpdate: any = {};
+    if (typeof isActive !== 'undefined') dataToUpdate.isActive = isActive;
+    if (typeof pageId !== 'undefined') {
+        dataToUpdate.pageId = pageId;
+        dataToUpdate.pageIds = pageId ? [pageId] : [];
     }
 
-    return NextResponse.json({ ok: true, isActive });
+    if (Object.keys(dataToUpdate).length > 0) {
+        // Toggle root + all child rules
+        await prisma.automationRule.update({
+            where: { id: params.id },
+            data: dataToUpdate
+        });
+
+        // Update children (rules with flowRootId = this id)
+        const children = await prisma.automationRule.findMany({
+            where: {
+                workspaceId: workspace.id,
+                triggerConfig: { path: ['flowRootId'], equals: params.id }
+            },
+            select: { id: true }
+        });
+
+        if (children.length > 0) {
+            await prisma.automationRule.updateMany({
+                where: { id: { in: children.map(c => c.id) } },
+                data: dataToUpdate
+            });
+        }
+    }
+
+    return NextResponse.json({ ok: true, isActive, pageId });
 }
 
 // ─── DELETE /api/workflows/:id ──────────────────────────────────────────
